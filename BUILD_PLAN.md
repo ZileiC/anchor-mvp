@@ -1,0 +1,127 @@
+﻿# BUILD_PLAN — Anchor MVP execution ledger
+
+**This file is the durable memory of the build loop.** A fresh agent with no conversation history
+must be able to open the workspace, read this file, and continue correctly.
+
+## 0. How to work a round (mandatory)
+
+1. Read `SPEC.md` (contracts), this file, and `DECISIONS.md` (append-only). Skim `../Anchor_Software_Design_and_MVP_Guide.md`
+   only when a product question is not answered by `SPEC.md`.
+2. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1 -BackendOnly` to see
+   the current baseline. It must be green before you start; if it is not, fixing it is your first task.
+3. Pick the **first milestone whose status is not DONE**. Work its next unchecked item to completion.
+   Keep the repository green at every step; never leave a broken import or a failing test behind.
+4. Write tests **before or with** the behavior. Never weaken or delete a test to make it pass.
+   If a contract is genuinely wrong, append a decision to `DECISIONS.md`, update `SPEC.md`, and note
+   it in the progress log.
+5. At the end of the round run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1`
+   (full; use `-SkipBuild` only when the Windows build is unaffected by your change).
+6. Update the milestone checkboxes and append one line to the progress log:
+   `YYYY-MM-DDTHH:MM | Mx | what changed | tests added/changed | verify result`.
+7. Mark a milestone `DONE` only when every checkbox in it is checked **and** its evidence command is
+   green. Otherwise leave it `IN PROGRESS` with the next unchecked item stated explicitly.
+
+**Rules**
+
+- One repository, one truth: no duplicate implementations, no commented-out dead code.
+- No writes outside `anchor/` (this folder).
+- No secrets in git; no network calls in tests; no sleeps > 1 s in tests (use the injected clock).
+- Provider calls are always behind adapters with fakes for tests.
+- UI text is bilingual: zh-CN default, English when `locale` is `en`. No health/diagnostic wording.
+- Security: every new endpoint gets at least one authorization test; every consent change gets an audit row.
+- Formatting: `ruff`-style discipline without the tool (4 spaces, 100 cols). Flutter uses `dart format`.
+- **Do not stop before `scripts/verify.ps1` is fully green and every milestone below is DONE.**
+
+## 1. Milestones
+
+### M0 — Foundation (status: DONE)
+- [x] `backend/requirements.txt`, `pytest.ini`, package skeleton exactly as in SPEC §1
+- [x] `app/config.py` (Settings, env), `app/clock.py` (Clock/FakeClock), `app/errors.py`
+- [x] `app/db.py`: connect/migrate/transaction/row helpers; `migrations/001_init.sql` = SPEC §3 + rotation/observation-topic storage decided in DECISIONS
+- [x] `app/main.py` `create_app()` with error handler, `/health`, dev-login token issuing/verification
+- [x] pytest fixtures: temp DB, app factory, fake clock, senior/caregiver tokens (5+ tests green)
+- [x] `scripts/bootstrap.ps1`, `run_backend.ps1`, `run_worker.ps1`, `verify.ps1` (full skeleton)
+- [x] `.gitignore`, `DECISIONS.md`, `README.md` skeleton
+- **Evidence:** `pytest -q` green (health + auth + migration tests); `scripts/verify.ps1 -BackendOnly` green.
+
+### M1 — Identity, consent, preferences, check-ins (status: DONE)
+- [x] `/me`, invitations (single-use, hashed, expiry), accept, approve, list, revoke
+- [x] Consent engine + `GET/PUT /consents` (versioning, 409 on conflict, audit)
+- [x] Preferences read/patch with validation; observation topics; designated device
+- [x] Schedule proposals (caregiver → senior approval applies atomically)
+- [x] Check-in eligibility/attempts/schedule with daily cap, window, quiet hours crossing midnight,
+  pause/snooze, designated device, no-active-session
+- [x] `authz_*` suite ≥15 cases incl. cross-household and client-supplied-id attacks; `s12_` setup test
+- **Evidence:** backend suite green; every S1/S7/S12 API rule has a test id.
+
+### M2 — Conversation, memory, activities (status: DONE)
+- [x] Provider protocols + fakes + `llm_rule` deterministic dialogue + `asr_http`/`llm_http` adapters
+- [x] Command routing (stop/repeat/play/call) with one clarification, confirmation-required dial action
+- [x] Session open/turns/stop, captions, cancellation token, no audio persistence, turn purge
+- [x] Memory propose/approve/list/delete/retrieval; 7-day recall test; prompt excludes deleted facts
+- [x] Activity content pack (`content/activities.json`, 3 types, ≥18 items), rotation persisted, activity sessions + observations
+- [x] Tests: `s2_`, `s3_`, `s4_`, `s6_`, `s7_`, `failure_stop_late_output`, `failure_delete_memory`
+- **Evidence:** backend suite green including cancellation and 7-day recall.
+
+### M3 — Family bridge, worker, retention (status: TODO)
+- [ ] Digest generation (adequate-data rule, ≤3 supported items, evidence refs, deterministic render)
+- [ ] Language guard (banned diagnostic patterns) on generation + edit
+- [ ] Draft/edit/approve/deliver lifecycle; caregiver filtering by current consent; generic notification
+- [ ] Worker: claim with lease, attempts/backoff/dead, `--once`, weekly idempotency, notify idempotency, retention purge
+- [ ] Contact actions (senior + caregiver), saved contacts, dial URI recording
+- [ ] Revocation/deletion semantics (cancel drafts, delete derived data, bump consent version)
+- [ ] Tests: `failure_revoke_after_draft`, `failure_cross_household`, `failure_worker_restart`,
+  `failure_sparse_data`, `s10_`, `s11_`, retention/deletion tests
+- **Evidence:** backend suite green; worker can be run twice with no duplicate digest/notification.
+
+### M4 — Backend acceptance harness & docs draft (status: TODO)
+- [ ] `tests/test_acceptance_matrix.py` mapping every §8 row to a test id; MANUAL rows explicit
+- [ ] `scripts/eval_wer.py` (S+D+I)/N with char tokenizer + dialect groups
+- [ ] `tests/test_no_camera_capability.py` scanning mobile manifests for camera/microphone policy
+- [ ] `scripts/seed_demo.py` idempotent demo data (senior 1 + caregiver 2, consents, contacts, week of observations, one memory, one activity history)
+- [ ] `docs/measurement.md` protocol for the MANUAL rows (WER, unaided completion, memory, digest rating, family contact)
+- **Evidence:** `scripts/verify.ps1 -BackendOnly` green; acceptance matrix collects and passes.
+
+### M5 — Flutter shell, core screens, state (status: TODO)
+- [ ] `theme.dart` (26 px text, 56 px targets, contrast), `app.dart`, routing by role
+- [ ] API client + credential store + models; app state (session, consent snapshot, settings)
+- [ ] Home (Talk/Play/Call/Settings, Stop bar), Talk (text mode, captions, mic indicator, Repeat/Stop), Settings basics
+- [ ] Widget tests: home layout phone/tablet, one-tap reachability, stop visible everywhere, text sizes
+- [ ] `flutter analyze` zero errors; `dart format` clean
+- **Evidence:** `flutter analyze` + `flutter test` green.
+
+### M6 — Flutter full feature set (status: TODO)
+- [ ] Play (3 activity types + rotation fetch), Call (contacts, confirmation, dialer), TTS playback, mic capture with text fallback
+- [ ] Settings full: greeting window, quiet hours, pause, pace, short replies, language, memories (approve/delete), sharing topics, digest preview/approve, revoke, delete data
+- [ ] Caregiver mode: invitation acceptance, digest, call to check in, propose schedule, connection status
+- [ ] InvitationScheduler (pure Dart) + unit tests (window, midnight quiet hours, cap, snooze, timezone, restart)
+- [ ] Offline recovery UI (Stop/settings/cached activities/call still work), request nonce discards late responses
+- **Evidence:** widget/unit tests green; every screen has Stop/Not now.
+
+### M7 — Native build & integration (status: TODO)
+- [ ] `scripts/build_windows.ps1` syncs to ASCII path, applies CMake install-prefix fix, builds, copies exe + data to `mobile/dist/windows/`
+- [ ] `scripts/run_app.ps1` runs the built app against a local backend
+- [ ] App↔backend smoke: login, talk, play, stop, digest preview (recorded script or integration test)
+- [ ] Optional screenshots to `docs/img/` (nice-to-have; never block this milestone on it)
+- **Evidence:** `flutter build windows --debug` green; app launches (process stays alive ≥5 s).
+
+### M8 — Docs, checklist, final gate (status: TODO)
+- [ ] `README.md` quickstart + 5-minute demo script + honest limitations pointer
+- [ ] `docs/setup.md` (providers, DB, worker recovery, retention/deletion, device setup)
+- [ ] `docs/acceptance-checklist.md` every §9 bullet + §8 row → evidence link or `MANUAL – not measured`
+- [ ] `docs/limitations.md` (no user study yet, speech adapter unevaluated, WER unmeasured, secure storage adapter, native path workaround)
+- [ ] Remove intermediate artifacts (probe scripts, temp dirs, logs); keep contract tests and verify scripts
+- [ ] Full `scripts/verify.ps1` green
+- **Evidence:** verify exit 0; checklist has no empty boxes.
+
+## 2. Progress log (append-only, newest at bottom)
+
+| time | milestone | change | evidence |
+|---|---|---|---|
+| 2026-11-05T15:45+08:00 | setup | Lead froze `SPEC.md` + `BUILD_PLAN.md`; env de-risked (Flutter 3.47.2, Windows build works via ASCII copy + nuget + CMake fix) | windows build smoke OK |
+
+| 2026-11-05T15:52+08:00 | M0 | settings/clock/errors/db + migration 001 (SPEC §3), create_app error envelope, /health, dev-login, /me, package skeleton; bootstrap now runs the real migration | tests/test_config.py, test_db.py, test_auth.py, test_health.py (31 tests) | verify.ps1 -BackendOnly green |
+| 2026-11-05T15:54+08:00 | M1 | invitations (hashed, single-use, expiry) + link lifecycle + schedule proposals; consent engine with versions/409/audit; preferences patch validation; check-in eligibility/attempts/7-day schedule; authz suite | test_relationships.py, test_consents.py, test_preferences.py, test_checkins.py (incl. failure_quiet_hours_midnight), test_authz.py (37 cases) -> 126 total | verify.ps1 -BackendOnly green |
+
+| 2026-11-05T15:59+08:00 | M2 | providers (rule LLM, fake/HTTP ASR+LLM, notifier), command router, orchestrator (consent gate, audio->ASR, cancellation, observations), memory service (approve/delete/retrieve), 18-item activity pack with persisted rotation, sessions/memories/activities APIs | test_providers, test_s4_commands (28), test_sessions (25, incl. failure_stop_late_output), test_memories (11, incl. 7d recall + failure_delete_memory), test_activities (11) -> 216 total | verify.ps1 -BackendOnly green |
+| 2026-11-05T16:07+08:00 | verify | Flutter steps (pub get/analyze/test/build) now run from the ASCII mirror via `Sync-MobileToAscii` (Dart analysis server crashes with "Unexpected end of input" on non-ASCII paths); removed the `cmtest/` CMake probe; next unchecked milestone = M3 | full `verify.ps1` green: backend 216 tests, dart format, analyze, flutter test, flutter build windows |
