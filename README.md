@@ -19,6 +19,12 @@ what is **not** measured is `docs/limitations.md`.
 | One-command scripts (bootstrap, run, build, verify, seed, WER) | `scripts/` |
 | Frozen contract + decisions log | `SPEC.md`, `DECISIONS.md` |
 
+## Contributing (team workflow)
+
+The repository is public; `main` is integration-owned. Teammates work through **fork + Pull Request**
+— see [CONTRIBUTING.md](CONTRIBUTING.md) for the branch/verify/PR checklist and the Windows build
+environment caveats.
+
 ## Quickstart (Windows)
 
 ```powershell
