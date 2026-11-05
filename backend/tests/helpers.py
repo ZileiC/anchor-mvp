@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.auth import issue_token
@@ -128,6 +128,37 @@ def insert_digest(
     )
 
 
+def insert_contact(
+    app,
+    senior: dict[str, Any],
+    *,
+    label: str = "小梅",
+    phone: str = "+8613900001111",
+    is_family: int = 1,
+) -> int:
+    ctx = app.state.ctx
+    return ctx.db.insert(
+        "INSERT INTO contacts(senior_id, label, phone, is_family, created_at) "
+        "VALUES (?,?,?,?,?)",
+        (int(senior["id"]), label, phone, is_family, iso_utc(ctx.clock.now())),
+    )
+
+
+def insert_notification(
+    app,
+    user: dict[str, Any],
+    *,
+    kind: str = "digest_ready",
+    title: str = "提醒",
+    body: str = "有新的内容可以查看。",
+) -> int:
+    ctx = app.state.ctx
+    return ctx.db.insert(
+        "INSERT INTO notifications(user_id, kind, title, body, created_at) VALUES (?,?,?,?,?)",
+        (int(user["id"]), kind, title, body, iso_utc(ctx.clock.now())),
+    )
+
+
 def insert_job(app, job_type: str, payload: dict[str, Any], idempotency_key: str) -> int:
     ctx = app.state.ctx
     now = iso_utc(ctx.clock.now())
@@ -143,6 +174,73 @@ def insert_job(app, job_type: str, payload: dict[str, Any], idempotency_key: str
             now,
         ),
     )
+
+
+DIGEST_PERIOD_START = "2025-12-29"  # previous ISO week for the default fake clock
+DIGEST_PERIOD_END = "2026-01-05"
+
+
+def insert_observation(
+    app,
+    senior: dict[str, Any],
+    *,
+    topic: str = "participation",
+    event_date: str = DIGEST_PERIOD_START,
+    evidence: str = "今天聊了聊天。",
+    source_ref: Optional[str] = None,
+    consent_version: Optional[int] = None,
+) -> int:
+    ctx = app.state.ctx
+    senior_id = int(senior["id"])
+    return ctx.db.insert(
+        "INSERT INTO observations(senior_id, topic, event_date, evidence, source_ref, "
+        "consent_version, created_at) VALUES (?,?,?,?,?,?,?)",
+        (
+            senior_id,
+            topic,
+            event_date,
+            evidence,
+            source_ref,
+            consent_version if consent_version is not None else ctx.consent.version(senior_id),
+            iso_utc(ctx.clock.now()),
+        ),
+    )
+
+
+def seed_adequate_observations(
+    app,
+    senior: dict[str, Any],
+    *,
+    topic: str = "mood",
+    evidence: str = "今天聊到了心情。",
+    period_start: str = DIGEST_PERIOD_START,
+    current_offsets: tuple[int, ...] = (0, 1, 2, 3),
+    prior_offsets: tuple[int, ...] = (1, 2, 3, 4, 5, 6),
+) -> list[int]:
+    """4 current-period days + 6 prior-14-day days: the adequate-data rule passes."""
+    start = date.fromisoformat(period_start)
+    observation_ids: list[int] = []
+    for offset in current_offsets:
+        observation_ids.append(
+            insert_observation(
+                app,
+                senior,
+                topic=topic,
+                event_date=(start + timedelta(days=offset)).isoformat(),
+                evidence=evidence,
+            )
+        )
+    for offset in prior_offsets:
+        observation_ids.append(
+            insert_observation(
+                app,
+                senior,
+                topic=topic,
+                event_date=(start - timedelta(days=offset)).isoformat(),
+                evidence=evidence,
+            )
+        )
+    return observation_ids
 
 
 class RecordingLLM:
@@ -198,16 +296,22 @@ def utc(*args, **kwargs) -> datetime:  # small convenience for tests
 
 __all__ = [
     "AppError",
+    "DIGEST_PERIOD_END",
+    "DIGEST_PERIOD_START",
     "FailingLLM",
     "RecordingLLM",
     "StopDuringThinkingLLM",
     "headers",
+    "insert_contact",
     "insert_digest",
     "insert_job",
+    "insert_notification",
+    "insert_observation",
     "iso_now",
     "link_relationship",
     "make_user",
     "parse",
+    "seed_adequate_observations",
     "seed_consents",
     "token_for",
     "utc",

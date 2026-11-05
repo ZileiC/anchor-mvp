@@ -1,4 +1,4 @@
-﻿# DECISIONS — append-only engineering log
+# DECISIONS — append-only engineering log
 
 Format: `## YYYY-MM-DD — title` / context / decision / consequences. Never delete a decision;
 supersede it with a new entry.
@@ -70,3 +70,66 @@ supersede it with a new entry.
 - **Decision:** `ActivityEngine` stores `max(clock.now(), latest+1s)` in `activity_rotation.updated_at`,
   making the ordering total without adding a schema column.
 - **Consequences:** Rotation is fair under any clock resolution and still deterministic in tests.
+
+## 2026-11-05 — Digest reads re-filter items; consent version is snapshotted at approval
+
+- **Context:** SPEC §6.6/§7 require every caregiver read to re-check the relationship and
+  `share_topic` consents, while an approval stores the consent version it was approved under.
+- **Decision:** `DigestService._filter_items` drops any item whose topic is not currently permitted
+  at read *and* delivery time. The digest row keeps the `consent_version` captured at approval for
+  audit/UI, but filtering is driven by the current topic permissions, not by version equality:
+  re-granting a topic before an unchanged version bump must not silently revive old items, and the
+  topic check already covers every real permission change.
+- **Consequences:** A stale digest never transmits a revoked topic; a later revision of the digest
+  must be re-approved. Every edit deletes a queued `notify_digest` job so it cannot deliver stale
+  wording.
+
+## 2026-11-05 — Worker recovers crashed `running` jobs before claiming
+
+- **Context:** SPEC §8 claim query selects `pending`/`failed` jobs; a process that dies mid-job
+  would leave a row `running` forever and the lease would never be reclaimed.
+- **Decision:** `JobRunner.run_once` first runs `recover_expired_leases`: expired `running` rows
+  become `failed` with `last_error='lease_expired'`, then the normal claim query picks them up
+  (one extra attempt, bounded by `max_attempts`).
+- **Consequences:** Restart recovery matches the lease contract without changing the documented
+  claim query; a test drives a `running` row with an expired lease and asserts exactly one reclaim.
+
+## 2026-11-05 — Caregiver contact discovery via `GET /contacts`
+
+- **Context:** Guide §5.7 says the caregiver digest's "Call to check in" action points at the
+  older adult's saved contact, but SPEC §6.6 only lists `POST /contact-actions`, which needs a
+  contact id the caregiver cannot otherwise learn.
+- **Decision:** Add `GET /contacts` (SPEC §4 already permits the caregiver to read "the senior's
+  saved contact for the digest call action"): a senior sees their own contacts; a caregiver sees
+  only the linked, accepted senior's contacts. `POST /contact-actions` keeps the ownership checks.
+- **Consequences:** The family-call button is implementable without leaking another household's
+  contact list. New service modules `app/contacts.py` and `app/notifications.py` hold the logic;
+  `app/jobs.py`/`app/worker.py` hold the queue per SPEC §1.
+
+## 2026-11-05 — Local-date helpers must not treat a `datetime` as a Clock
+
+- **Context:** `local_now`/`local_date_str` accepted "a moment or a Clock" and tested
+  `hasattr(moment, "now")`. A `datetime` instance exposes the classmethod `.now`, so passing a
+  datetime silently used the real wall clock — invisible while callers passed the injected Clock,
+  but it broke the worker's scheduled week and retention cutoffs when called explicitly.
+- **Decision:** Only call `.now()` when the argument is not already a `datetime`.
+- **Consequences:** Both call styles behave as documented; the worker/retention tests now exercise
+  a fake clock without escaping to real time.
+
+## 2026-11-05 — Acceptance-harness decisions for M4
+
+- **Context:** Some §8 measures are user-study measurements, and the mobile tree is owned by a
+  different milestone; the no-camera test must not fail on a comment that says "no camera".
+- **Decision:** (a) `test_acceptance_matrix.py` marks user-study rows `MANUAL`, maps them to the
+  closest automated tests plus `docs/measurement.md`, and parses the guide §8 table and the eight
+  required failure bullets so a missing row/test breaks the build. Manual measures are documented
+  in `docs/measurement.md` (M8 owns `docs/acceptance-checklist.md`). (b) The no-camera scan strips
+  XML/C comments and checks permission/feature/camera-API tokens, reading the declared `record`
+  plugin manifest from `.dart_tool/package_config.json` because the microphone permission is
+  supplied by that plugin. (c) `failure_offline` covers the backend-testable slice (structured
+  provider recovery, Stop, local `tel:` action); screen-level offline behaviour remains M6.
+  (d) `seed_demo.py --check` seeds a temporary database twice and generates a digest there, proving
+  idempotency without touching `ANCHOR_DB_PATH`.
+- **Consequences:** No measurement is faked; the suite documents exactly what is automated and what
+  is still manual. Digest render counts are distinct observed days (the wording says "days"), not
+  raw observation rows.

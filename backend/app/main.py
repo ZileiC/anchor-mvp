@@ -16,8 +16,12 @@ from .api import (
     auth_routes,
     checkins,
     consents,
+    contacts,
+    data,
+    digests,
     health,
     memories,
+    notifications,
     preferences,
     relationships,
     sessions,
@@ -37,6 +41,10 @@ ROUTERS = (
     sessions,
     memories,
     activities,
+    digests,
+    contacts,
+    notifications,
+    data,
 )
 
 

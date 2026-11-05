@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Network access for the Anchor API. The app itself requests no image,
+         video or room-audio capture permission (S9). Microphone access is
+         contributed by the `record` plugin's own manifest. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="anchor_app"
         android:name="${applicationName}"

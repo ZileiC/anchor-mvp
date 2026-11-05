@@ -85,7 +85,7 @@ def in_window(moment: datetime, start: str, end: str) -> bool:
 
 def local_date_str(moment, timezone_name: str) -> str:
     """Accept either an aware datetime or a Clock (business code passes the clock)."""
-    if hasattr(moment, "now"):
+    if not isinstance(moment, datetime) and hasattr(moment, "now"):
         moment = moment.now()
     try:
         zone = ZoneInfo(timezone_name)
@@ -95,7 +95,7 @@ def local_date_str(moment, timezone_name: str) -> str:
 
 
 def local_now(moment, timezone_name: str) -> datetime:
-    if hasattr(moment, "now"):
+    if not isinstance(moment, datetime) and hasattr(moment, "now"):
         moment = moment.now()
     try:
         zone = ZoneInfo(timezone_name)

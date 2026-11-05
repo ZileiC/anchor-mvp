@@ -30,7 +30,7 @@ EVIDENCE_LIMIT = 140
 
 TEXT = {
     "zh-CN": {
-        "greeting": "早上好。今天想聊点什么？",
+        "greeting": "你好呀。今天想聊点什么？",
         "repeat_empty": "我刚才没说话呀。",
         "play": "好，我们玩：{title}。",
         "call_empty": "还没有保存联系人。",
@@ -40,7 +40,7 @@ TEXT = {
         "activity_observation": "完成了活动：{title}（{duration}秒）",
     },
     "en": {
-        "greeting": "Good morning. What would you like to talk about today?",
+        "greeting": "Hello. What would you like to talk about today?",
         "repeat_empty": "I haven't said anything yet.",
         "play": "Okay, let's play: {title}.",
         "call_empty": "There are no saved contacts yet.",
