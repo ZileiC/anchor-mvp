@@ -25,6 +25,13 @@ The repository is public; `main` is integration-owned. Teammates work through **
 — see [CONTRIBUTING.md](CONTRIBUTING.md) for the branch/verify/PR checklist and the Windows build
 environment caveats.
 
+## Demo build (no Flutter install needed)
+
+[**Download the Windows x64 build →**](https://github.com/ZileiC/anchor-mvp/releases/latest)
+(`anchor-mvp-windows-x64.zip`, ~32 MB). Unzip, start the local backend with the commands below, then
+run `anchor_app.exe`. Demo accounts: **1 = 林秀兰** (older adult), **2 = Mei** (caregiver). The zip
+contains `README-DEMO.txt` with the same instructions.
+
 ## Quickstart (Windows)
 
 ```powershell
