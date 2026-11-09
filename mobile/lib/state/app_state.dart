@@ -816,11 +816,14 @@ class AppState extends ChangeNotifier {
     // Without a real recogniser the backend would refuse the turn anyway, so
     // never record something that cannot be transcribed (the UI shows why).
     if (!asrConfigured) return false;
-    if (micUnavailable) return false;
+    // An earlier failure is not permanent: the headset may have disconnected, or
+    // the app that was holding the microphone may have let go. Always retry, and
+    // only keep [micUnavailable] as "the last attempt failed".
     try {
       await microphone.startRecording();
       recording = true;
       micFailed = false;
+      micUnavailable = false;
       notifyListeners();
       return true;
     } on MicrophoneUnavailable catch (error) {

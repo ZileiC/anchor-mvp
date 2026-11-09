@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'services/api_client.dart';
+import 'services/app_log.dart';
 import 'services/backend_bootstrapper.dart';
 import 'services/dialer.dart';
 import 'services/speaker_factory.dart';
@@ -11,6 +12,10 @@ import 'state/backend_startup.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // First thing: a windowed double-click launch has no console, so every
+  // debugPrint (microphone failures included) also goes to
+  // %LOCALAPPDATA%\Anchor\anchor_app.log.
+  AppLog.install();
   final api = ApiClient();
   final state = AppState(
     api: api,

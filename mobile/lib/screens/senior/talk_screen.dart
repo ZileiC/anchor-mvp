@@ -454,34 +454,35 @@ class _TalkScreenState extends State<TalkScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (!state.micUnavailable)
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 72),
-            child: FilledButton.icon(
-              key: const Key('talk-mic'),
-              onPressed: _toggleMic,
-              // Greyed but still tappable: tapping explains *why* instead of
-              // silently doing nothing. Without a recogniser nothing is recorded.
-              style: asrReady
-                  ? null
-                  : FilledButton.styleFrom(
-                      backgroundColor: AnchorTheme.muted,
-                      foregroundColor: AnchorTheme.surface,
-                    ),
-              icon: Icon(
-                state.recording
-                    ? Icons.stop
-                    : (asrReady ? Icons.mic : Icons.mic_off),
-                size: 32,
-              ),
-              label: Text(
-                state.recording
-                    ? l.doneSpeaking
-                    : (asrReady ? l.startTalking : l.micNotConnected),
-                style: const TextStyle(fontSize: 26),
-              ),
+        // Always tappable: a microphone that failed once (busy headset, a call
+        // holding it) must be retryable without restarting the app.
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 72),
+          child: FilledButton.icon(
+            key: const Key('talk-mic'),
+            onPressed: _toggleMic,
+            // Greyed but still tappable: tapping explains *why* instead of
+            // silently doing nothing. Without a recogniser nothing is recorded.
+            style: asrReady
+                ? null
+                : FilledButton.styleFrom(
+                    backgroundColor: AnchorTheme.muted,
+                    foregroundColor: AnchorTheme.surface,
+                  ),
+            icon: Icon(
+              state.recording
+                  ? Icons.stop
+                  : (asrReady ? Icons.mic : Icons.mic_off),
+              size: 32,
+            ),
+            label: Text(
+              state.recording
+                  ? l.doneSpeaking
+                  : (asrReady ? l.startTalking : l.micNotConnected),
+              style: const TextStyle(fontSize: 26),
             ),
           ),
+        ),
         if (state.recording) ...<Widget>[
           const SizedBox(height: 6),
           Text(

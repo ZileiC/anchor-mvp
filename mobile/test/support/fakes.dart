@@ -551,6 +551,13 @@ class FakeMicrophoneInput implements MicrophoneInput {
   FakeMicrophoneInput({this.available = true});
 
   bool available;
+
+  /// Set to make [startRecording] fail the way a busy/absent device does.
+  String? failStartWith;
+  String? _lastError;
+
+  @override
+  String? get lastError => _lastError;
   RecordedAudio? captured = const RecordedAudio(
     base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEA',
     mimeType: 'audio/wav',
@@ -565,6 +572,12 @@ class FakeMicrophoneInput implements MicrophoneInput {
   @override
   Future<void> startRecording() async {
     startCalls++;
+    final failure = failStartWith;
+    if (failure != null) {
+      _lastError = failure;
+      throw MicrophoneUnavailable(failure);
+    }
+    _lastError = null;
   }
 
   @override
