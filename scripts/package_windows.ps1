@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$SkipBuild,
     [string]$Version = "0.2.0"
 )
@@ -33,9 +33,17 @@ if (Test-Path $stageRoot) { Remove-Item -Recurse -Force $stageRoot }
 $stage = Join-Path $stageRoot 'AnchorDemo'
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
+# Resolve 8.3 short TEMP paths (e.g. JHARAY~1) to their long form: Get-ChildItem
+# returns long paths, so substring math on the short $stage string is wrong and
+# produced zip entries like "\anchor_app.exe" / "o/anchor_app.exe".
+$stageFull = (Get-Item $stage).FullName
+$appDirFull = (Get-Item $appDir).FullName
+
 Write-Host '[package] staging app files ...' -ForegroundColor Cyan
 Get-ChildItem $appDir -Recurse -File | Where-Object { $_.Extension -ne '.pdb' } | ForEach-Object {
-    $rel = $_.FullName.Substring($appDir.Length + 1)
+    # Entry names must be RELATIVE and use forward slashes; a leading backslash
+    # makes Windows Explorer and several unzip tools hide/garble the archive.
+    $rel = $_.FullName.Substring($appDirFull.Length).TrimStart('\', '/').Replace('\', '/')
     $dest = Join-Path $stage $rel
     New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
     Copy-Item $_.FullName $dest -Force
@@ -85,7 +93,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::Open($zip, 'Create')
 $count = 0
 Get-ChildItem $stage -Recurse -File | ForEach-Object {
-    $rel = $_.FullName.Substring($stage.Length + 1)
+    $rel = $_.FullName.Substring($stageFull.Length).TrimStart('\', '/').Replace('\', '/')
     [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
         $archive, $_.FullName, $rel, [System.IO.Compression.CompressionLevel]::Optimal
     ) | Out-Null
