@@ -9,6 +9,7 @@ import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/status_banner.dart';
 import '../../widgets/time_picker_dialog.dart';
+import 'ai_providers_screen.dart';
 
 /// Settings: every autonomy control in one place (SPEC §9, S1/S7/S8/S9).
 ///
@@ -91,6 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           _scheduleSection(l, state, prefs),
           _voiceSection(l, state, prefs),
+          _aiSection(l, state),
           _consentSection(l, state),
           _sharingSection(l, state),
           _proposalsSection(l, state),
@@ -318,6 +320,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -- AI providers (model + speech recognition) ---------------------------
+  Widget _aiSection(L l, AppState state) {
+    final providers = state.providers;
+    final llmLabel = providers == null
+        ? l.aiStatusUnknown
+        : (providers.llm.configured ? l.aiStatusHttp : l.aiStatusOfflineLlm);
+    final asrLabel = providers == null
+        ? l.aiStatusUnknown
+        : switch (providers.asr.engine) {
+            'windows-sapi' => l.aiAsrEngineWindows,
+            'http' => l.aiAsrEngineHttp,
+            'fake' => l.aiAsrEngineFake,
+            _ => l.aiAsrEngineNone,
+          };
+    return SectionCard(
+      title: l.aiProvidersTitle,
+      icon: Icons.smart_toy_outlined,
+      hint: l.aiProvidersEntryHint,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            '${l.aiLlmSection}：$llmLabel',
+            key: const Key('settings-ai-llm-status'),
+            style: const TextStyle(fontSize: 24, color: AnchorTheme.ink),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${l.aiAsrSection}：$asrLabel',
+            key: const Key('settings-ai-asr-status'),
+            style: const TextStyle(fontSize: 24, color: AnchorTheme.ink),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('settings-ai-entry'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => AiProvidersScreen(state: state),
+              ),
+            ),
+            icon: const Icon(Icons.tune, size: 28),
+            label: Text(
+              l.aiProvidersTitle,
+              style: const TextStyle(fontSize: 24),
+            ),
           ),
         ],
       ),

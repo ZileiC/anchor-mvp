@@ -9,8 +9,10 @@ from typing import Any, Optional
 DEFAULT_DEV_SECRET = "dev-only-secret-change-me"
 
 ENVS = ("dev", "test", "production")
-ASR_PROVIDERS = ("fake", "http")
-LLM_PROVIDERS = ("rule", "http")
+# "none" is the honest "not configured" mode; "auto" picks the real offline
+# Windows SAPI recognizer when this machine has one (packaged demo default).
+ASR_PROVIDERS = ("none", "auto", "fake", "http")
+LLM_PROVIDERS = ("none", "rule", "http")
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -37,7 +39,7 @@ class Settings:
     token_ttl_seconds: int = 86400
     worker_interval_seconds: int = 60
     job_lease_seconds: int = 120
-    asr_provider: str = "fake"
+    asr_provider: str = "none"
     asr_url: Optional[str] = None
     asr_api_key: Optional[str] = None
     asr_model: str = "whisper-1"
@@ -80,7 +82,7 @@ class Settings:
             token_ttl_seconds=_env_int("ANCHOR_TOKEN_TTL_SECONDS", 86400),
             worker_interval_seconds=_env_int("ANCHOR_WORKER_INTERVAL_SECONDS", 60),
             job_lease_seconds=_env_int("ANCHOR_JOB_LEASE_SECONDS", 120),
-            asr_provider=_env("ANCHOR_ASR_PROVIDER", "fake"),
+            asr_provider=_env("ANCHOR_ASR_PROVIDER", "none"),
             asr_url=os.environ.get("ANCHOR_ASR_URL") or None,
             asr_api_key=os.environ.get("ANCHOR_ASR_API_KEY") or None,
             asr_model=_env("ANCHOR_ASR_MODEL", "whisper-1"),

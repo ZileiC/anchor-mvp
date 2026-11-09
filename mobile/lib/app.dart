@@ -4,7 +4,9 @@ import 'screens/caregiver/caregiver_home.dart';
 import 'screens/login_screen.dart';
 import 'screens/senior/home_screen.dart';
 import 'state/app_state.dart';
+import 'state/backend_startup.dart';
 import 'theme.dart';
+import 'widgets/backend_startup_gate.dart';
 
 /// Provides [AppState] to the widget tree and rebuilds dependants on change.
 class AnchorScope extends InheritedNotifier<AppState> {
@@ -25,12 +27,19 @@ final RouteObserver<ModalRoute<void>> anchorRouteObserver =
 
 /// The Anchor application: one app, two modes (SPEC §9).
 class AnchorApp extends StatelessWidget {
-  const AnchorApp({super.key, required this.state});
+  const AnchorApp({super.key, required this.state, this.startup});
 
   final AppState state;
 
+  /// Waits for the bundled backend before the first screen is usable.
+  ///
+  /// Null means "no local backend to wait for" (widget tests, and any build that
+  /// has nothing to prepare), so the app goes straight to [RootScreen].
+  final BackendStartup? startup;
+
   @override
   Widget build(BuildContext context) {
+    final startup = this.startup;
     return AnchorScope(
       state: state,
       child: MaterialApp(
@@ -45,7 +54,9 @@ class AnchorApp extends StatelessWidget {
           maxScaleFactor: 1.6,
           child: child ?? const SizedBox.shrink(),
         ),
-        home: const RootScreen(),
+        home: startup == null
+            ? const RootScreen()
+            : BackendStartupGate(startup: startup, child: const RootScreen()),
       ),
     );
   }

@@ -8,7 +8,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional, Union
 
-MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
+from .paths import migrations_dir
+
+# Kept for callers that import it, but the runner resolves at call time so a
+# frozen bundle reads <sys._MEIPASS>/migrations (see app/paths.py).
+MIGRATIONS_DIR = migrations_dir()
 
 Params = Union[Iterable[Any], dict[str, Any]]
 
@@ -38,7 +42,7 @@ class Database:
                 row["name"]
                 for row in self.conn.execute("SELECT name FROM schema_migrations").fetchall()
             }
-            for sql_file in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            for sql_file in sorted(migrations_dir().glob("*.sql")):
                 if sql_file.name in done:
                     continue
                 self.conn.executescript(sql_file.read_text(encoding="utf-8"))

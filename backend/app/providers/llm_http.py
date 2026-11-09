@@ -7,6 +7,7 @@ from typing import Any, Optional
 import httpx
 
 from ..errors import provider_unavailable
+from .urls import chat_completions_url
 
 
 class HttpLLM:
@@ -28,7 +29,7 @@ class HttpLLM:
 
     @property
     def url(self) -> str:
-        return f"{self.base_url}/chat/completions"
+        return chat_completions_url(self.base_url)
 
     def _headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
@@ -55,7 +56,7 @@ class HttpLLM:
             ) from exc
         if response.status_code >= 400:
             raise provider_unavailable(
-                "The conversation service is not reachable right now.",
+                f"The conversation service answered with an error (HTTP {response.status_code}).",
                 recovery=["retry", "type_instead"],
             )
         try:

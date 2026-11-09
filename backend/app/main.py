@@ -23,6 +23,7 @@ from .api import (
     memories,
     notifications,
     preferences,
+    providers,
     relationships,
     sessions,
 )
@@ -34,6 +35,7 @@ OFFLINE_CAPABILITIES = ["stop", "settings", "cached_activities", "system_calling
 ROUTERS = (
     health,
     auth_routes,
+    providers,
     relationships,
     consents,
     preferences,
@@ -52,6 +54,7 @@ def create_app(
     settings: Optional[Settings] = None,
     clock: Optional[Clock] = None,
     providers: Optional[dict[str, Any]] = None,
+    provider_transport: Optional[Any] = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
 
@@ -63,7 +66,9 @@ def create_app(
     application.state.settings = settings
     application.state.db = database
     application.state.clock = active_clock
-    application.state.ctx = AppContext(settings, database, active_clock, providers)
+    application.state.ctx = AppContext(
+        settings, database, active_clock, providers, provider_transport
+    )
     application.state.providers = application.state.ctx.providers
 
     install_error_handlers(application)

@@ -448,6 +448,25 @@ unapproved/undelivered → `cancelled` on revocation or deletion.
 ### 6.8 Health
 `GET /health` → `{status:"ok", version, time, offline_capabilities:["stop","settings","cached_activities","system_calling"]}`
 
+### 6.9 Real provider configuration (runtime; extension)
+
+The offline defaults are honest placeholders: `rule` replies and *no* ASR unless a provider or the
+Windows recognizer is available. A senior can connect a real OpenAI-compatible LLM/ASR at runtime;
+the backend rebuilds adapters in place (no restart). Keys are stored locally in plaintext (demo-only
+limitation), never returned in full and never logged.
+
+| Method | Path | Auth | Contract |
+|---|---|---|---|
+| GET | `/providers` | senior | `{llm:{configured,base_url,model,key_hint,mode:"http"|"offline",engine:"http"|"windows-sapi"|"offline-rule"|"fake"|"none"}, asr:{...}, updated_at}` |
+| PUT | `/providers` | senior | `{llm?:{base_url?,api_key?,model?,clear?}, asr?:{...}}`; partial (empty api_key keeps the stored key, `clear:true` resets a section); http(s) base URL + non-empty model validated (422); response = masked GET shape |
+| POST | `/providers/test` | senior | optional `{audio_b64, audio_mime}`; runs a real 10 s one-shot LLM call and, when audio is supplied, the current live ASR; → `{llm:{ok,latency_ms,reply_sample,error}, asr:{ok,text_sample?,reason?,error?}}`; no audio → `asr.reason:"no_sample"` |
+
+Resolution precedence: stored row (base URL + key) → `ANCHOR_*` env/Settings → offline default.
+Explicit `none` returns 503 `provider_unavailable` with `recovery:["type_instead","configure"]`
+instead of ever fabricating a transcript. On Windows the packaged backend defaults ASR to `auto`,
+i.e. the local System.Speech recognizer (16 kHz mono WAV, zh-CN preferred, partial transcripts
+possible), with `none` when no recognizer exists.
+
 ## 7. Digest content rules (S10 + §8)
 
 Generation (worker `weekly_digest`, due each Monday 09:00 local for the previous 7 days):

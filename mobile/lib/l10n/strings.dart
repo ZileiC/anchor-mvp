@@ -56,6 +56,22 @@ class L {
   String get backendLabel => t('后台地址', 'Backend');
   String get signIn => t('进入', 'Enter');
 
+  // -- local backend startup ------------------------------------------------
+  String get backendPreparing => t('正在准备本地服务…', 'Preparing the local service…');
+  String get backendUnavailableTitle =>
+      t('本地服务未启动', 'The local service is not running');
+  String get backendMissingBody => t(
+    '没有找到后台程序。它应该和本程序放在同一个文件夹里。',
+    'The backend program was not found. It belongs in the same folder as this app.',
+  );
+  String get backendTimeoutBody =>
+      t('后台程序启动得太慢，还没有准备好。', 'The backend is taking too long to be ready.');
+  String get backendStarting =>
+      t('正在重新启动本地服务…', 'Restarting the local service…');
+  String backendExpectedPath(String path) =>
+      t('需要的文件：$path', 'Expected file: $path');
+  String get backendRetry => t('重试', 'Retry');
+
   // -- senior home ----------------------------------------------------------
   String get greetingMorning => t('早上好', 'Good morning');
   String get greetingAfternoon => t('下午好', 'Good afternoon');
@@ -245,6 +261,107 @@ class L {
   );
   String get settingsNextCheckin => t('下次问候时间', 'Next check-in');
   String get settingsRefresh => t('刷新', 'Refresh');
+
+  // -- AI providers (model + speech recognition) ---------------------------
+  String get aiProvidersTitle =>
+      t('AI 接入（模型/语音）', 'AI connection (model / speech)');
+  String get aiProvidersEntryHint => t(
+    '接上真的对话模型和语音识别。不接也能用，但回复是离线模板，语音不会假装听懂。',
+    'Connect a real chat model and speech recognition. Without them the app '
+        'still works, but replies are offline templates and speech is never faked.',
+  );
+  String get aiProvidersSeniorOnly => t(
+    '由老人管理。家人不能修改 AI 接入。',
+    'Managed by the older adult. Family members cannot change AI settings.',
+  );
+  String get aiLlmSection => t('对话模型（DeepSeek）', 'Chat model (DeepSeek)');
+  String get aiLlmHint => t(
+    '填入 DeepSeek 的地址和密钥后，回复就来自真的模型。密钥只保存在本机后台。',
+    'With a DeepSeek URL and key, replies come from the real model. The key is '
+        'only stored by the local backend.',
+  );
+  String get aiBaseUrl => t('接口地址', 'Base URL');
+  String get aiModel => t('模型名', 'Model');
+  String get aiApiKey => t('API 密钥', 'API key');
+  String get aiKeepKey =>
+      t('留空 = 保持已保存的密钥', 'Leave blank to keep the saved key');
+  String aiSavedKeyHint(String hint) => t('已保存密钥：$hint', 'Saved key: $hint');
+  String get aiDeepSeekPreset => t('填入 DeepSeek 预设', 'Fill in DeepSeek preset');
+  String get aiDeepSeekPresetHint =>
+      t('api.deepseek.com · deepseek-chat', 'api.deepseek.com · deepseek-chat');
+  String get aiStatusLine => t('状态', 'Status');
+  String get aiStatusHttp => t('已接入 · http', 'Connected · http');
+  String get aiStatusOfflineLlm =>
+      t('未配置 · 离线模板回复', 'Not configured · offline template replies');
+  String get aiStatusUnknown => t('还没读取到状态', 'Status not loaded yet');
+  String get aiTestLlm => t('测试连接', 'Test connection');
+  String get aiTesting => t('正在测试…', 'Testing…');
+  String get aiTestOk => t('连接正常', 'Connection OK');
+  String aiTestOkDetail(int latencyMs, String sample) => t(
+    '连接正常（${latencyMs}ms）：$sample',
+    'Connection OK (${latencyMs}ms): $sample',
+  );
+  String aiTestFailed(String message) =>
+      t('连接失败：$message', 'Connection failed: $message');
+  String get aiTestNotConfigured => t(
+    '还没配置 HTTP 对话接口，现在是离线模板回复。',
+    'No HTTP chat endpoint is configured; replies are offline templates.',
+  );
+  String get aiClearSection => t('清除这一项', 'Reset this section');
+  String get aiNothingToSave => t('没有可以保存的内容。', 'Nothing to save.');
+  String get aiSavedAgain => t('已经保存。', 'Saved.');
+  String get aiAsrSection => t('语音识别', 'Speech recognition');
+  String get aiAsrHint => t(
+    '这台电脑默认用本机离线识别。填了下面的云端地址和密钥才会改用云端。',
+    'This computer uses on-device offline recognition by default. The cloud '
+        'endpoint below is only used when both URL and key are filled in.',
+  );
+  String get aiAsrEngineWindows => t('本机离线语音', 'On-device offline speech');
+  String get aiAsrEngineHttp => t('已接入 · http', 'Connected · http');
+  String get aiAsrEngineNone => t('未接入', 'Not connected');
+  String get aiAsrEngineFake => t('测试替身（不真实）', 'Test fake (not real)');
+  String get aiAsrTestMic => t('测试麦克风识别', 'Test microphone recognition');
+  String get aiAsrTesting =>
+      t('正在录音，请说一句话…', 'Recording — please say a sentence…');
+  String get aiAsrNoSample =>
+      t('没有录到声音，请再试一次。', 'No audio was captured. Please try again.');
+  String aiAsrTranscript(String text) => t('识别结果：$text', 'Recognised: $text');
+  String aiAsrError(String message) =>
+      t('识别失败：$message', 'Recognition failed: $message');
+  String get aiAsrNotConfigured => t(
+    '语音识别还没有接入，先在下面配置，或者改用打字。',
+    'Speech recognition is not connected yet. Configure it below, or type instead.',
+  );
+  String get aiAsrReasonNoSample =>
+      t('没有音频样本，无法测试。', 'No audio sample, so nothing can be tested.');
+  String get aiAsrReasonInvalidSample =>
+      t('音频样本无效，无法测试。', 'The audio sample is invalid.');
+  String get aiAsrReasonNotConfigured =>
+      t('语音识别还没有接入。', 'Speech recognition is not configured.');
+  String get aiMicUnavailable =>
+      t('这个设备的麦克风用不了。', 'The microphone is unavailable here.');
+  String get aiEngineNone => t('未接入', 'Not connected');
+  String get aiLlmNotConfiguredProbe => t(
+    '没有配置 HTTP 对话接口（离线模式）。',
+    'No HTTP chat endpoint is configured (offline mode).',
+  );
+
+  // -- provider states on the Talk screen ----------------------------------
+  String get asrNotConnectedTitle =>
+      t('语音识别还没有接入', 'Speech recognition is not connected yet');
+  String get asrNotConnectedBody => t(
+    '现在按麦克风不会录音，也不会显示假的文字。可以先去设置接入，或者改用打字。',
+    'The microphone will not record, and no fake transcript is shown. Connect '
+        'speech recognition in settings, or type instead.',
+  );
+  String get micNotConnected => t('语音识别未接入', 'Speech recognition off');
+  String get llmOfflineBadge => t('离线模板回复', 'Offline template reply');
+  String get providerUnavailableTitle =>
+      t('语音服务暂时连不上', 'The speech service is not reachable');
+  String get providerUnavailableBody => t(
+    '这句话没有被转成文字，也没有回复。可以再试一次，或者改用打字。',
+    'That sentence was not transcribed and no reply was given. Try again, or type instead.',
+  );
 
   // -- caregiver ------------------------------------------------------------
   String get caregiverTitle => t('家人这边', 'Family');

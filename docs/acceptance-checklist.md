@@ -11,16 +11,17 @@ cd anchor
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-Latest run: `283 passed` (backend pytest) · `No issues found!` (flutter analyze) · `116/116` (flutter
-test) · Windows build OK · seed check OK · live desktop run verified (invitation accept, greeting
-speech, Repeat, no crash). Screenshots: `docs/img/01-login.png` … `docs/img/11-settings-topics.png`.
+Latest run: `347 passed` (backend pytest) · `No issues found!` (flutter analyze) · `159/159` (flutter
+test) · Windows build OK · seed check OK · packaged exe E2E verified (double-click → backend auto-start
+→ real DeepSeek reply + real Windows SAPI transcript). Screenshots: `docs/img/01-login.png` …
+`docs/img/11-settings-topics.png`; live AI evidence: `docs/ai-live-evidence.md`.
 
 ## A. §9 “Before calling the MVP complete” — all 13 items
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
 | 1 | Talk, Play, Call work on an existing phone and tablet | MET (layout) / MANUAL (device) | Widget tests `home_widget_test.dart::every primary action opens its screen in one tap` and the phone 390×844 / tablet 800×1200 layout tests; real desktop screenshots `02-home.png`, `03-talk.png`, `06-play.png`, `07-call.png`; backend flow tests `test_sessions.py::test_s2_*`, `test_s4_play_command_returns_activity`, `test_contacts.py::test_s11_*`. Physical Android device run not performed (see limitations). |
-| 2 | Voice dialogue supports slow speech, captions, clarification, retry | PARTIAL | Captions/retry/one-clarification/confirmation paths: `test_sessions.py::test_s2_turn_produces_reply_and_captions`, `::test_s2_repeat_replays_last_answer`, `::test_s4_call_command_asks_one_clarification`, `::test_s6_session_view_includes_captions`, `test_s4_commands.py` (28 cases); app `talk_stop_test.dart`. Slow-speech tolerance and ASR quality are MANUAL — no older-adult recordings, WER unmeasured. |
+| 2 | Voice dialogue supports slow speech, captions, clarification, retry | PARTIAL | Captions/retry/one-clarification/confirmation paths: `test_sessions.py::test_s2_turn_produces_reply_and_captions`, `::test_s2_repeat_replays_last_answer`, `::test_s4_call_command_asks_one_clarification`, `::test_s6_session_view_includes_captions`, `test_s4_commands.py` (28 cases); app `talk_stop_test.dart`. Voice input is real on Windows via the local System.Speech recognizer (`backend/app/providers/asr_windows.py`, live transcript “今天天气不错” from a spoken WAV) and HTTP ASR can be configured (`/providers`); slow-speech tolerance, dialect coverage and WER remain MANUAL. Real LLM replies are live-verified after `Settings → AI 接入` (“好呀，我陪你聊聊。你阳台上那些花，最近开得怎么样？”); until configured the UI labels template replies as offline. |
 | 3 | All three activity types work and rotate around chosen interests | MET | `test_activities.py::test_s3_content_pack_is_complete` (≥18 items, 3 types), `::test_s3_rotation_never_repeats_until_all_shown`, `::test_s3_rotation_survives_restart`, `::test_s3_interests_are_prioritised`; app `activity_rotation_test.dart` (10). |
 | 4 | Memory is explicitly approved, inspectable, deletable | MET | `test_memories.py` (11): propose → approve → list → delete, `::test_memory_recall_7d`, `::test_failure_delete_memory`; UI at `11-settings-topics.png`. |
 | 5 | Invitations respect opt-in, a daily cap, quiet hours, pause | MET | `test_checkins.py` 15 cases incl. `::test_s1_attempt_records_and_cap_blocks_second`, `::test_s1_quiet_hours_block_attempt`, `::test_s1_paused_and_snoozed_block`, `::test_failure_quiet_hours_midnight`; app `invitation_scheduler_test.dart` (22: window, midnight, cap, snooze, timezone, DST, restart) and `invitation_controller_test.dart` (16: eligible fires once, reasons suppress, dismiss not repeated, accept posts `accepted` + opens a proactive session); live screenshot `03b-invitation.png`. Background OS notification firing is not implemented (foreground path only). |

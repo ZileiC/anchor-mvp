@@ -11,3 +11,4 @@ export 'digest.dart';
 export 'memory.dart';
 export 'preferences.dart';
 export 'profile.dart';
+export 'provider.dart';

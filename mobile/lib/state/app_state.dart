@@ -29,6 +29,7 @@ class AppState extends ChangeNotifier {
     DateTime Function()? now,
     InvitationController? invitationController,
     Duration invitationInterval = const Duration(seconds: 60),
+    this.probeDuration = const Duration(seconds: 3),
   }) : credentials = credentials ?? CredentialStore(),
        _now = now ?? DateTime.now {
     invitations =
@@ -49,6 +50,9 @@ class AppState extends ChangeNotifier {
   final Dialer dialer;
   final CredentialStore credentials;
   final DateTime Function() _now;
+
+  /// How long the Settings screen records when the user tests the microphone.
+  final Duration probeDuration;
 
   /// Foreground proactive invitations (SPEC §6.2). Owned here so the loop lives
   /// with the app, not with a screen; Home only reports whether it is visible.
@@ -92,6 +96,26 @@ class AppState extends ChangeNotifier {
   bool micUnavailable = false;
   bool micFailed = false;
   bool sendingTurn = false;
+
+  /// The request that failed and can be retried without retyping (503 recovery).
+  _PendingTurn? _pendingTurn;
+
+  // -- model and speech providers -----------------------------------------
+  /// What the backend will really use; null until it has been read once.
+  ProviderStatus? providers;
+  bool providersLoading = false;
+  bool providerFeatureMissing = false;
+
+  /// True only when the backend says a real recogniser is available. An unknown
+  /// status is treated as "not available" so the mic can never fake a transcript.
+  bool get asrConfigured => providers?.asr.configured ?? false;
+
+  bool get llmConfigured => providers?.llm.configured ?? false;
+
+  /// The honest "offline template reply" badge: shown as soon as the status is
+  /// known and the LLM is not configured, hidden once a real model is set up.
+  bool get showOfflineLlmBadge =>
+      providers != null && !providers!.llm.configured;
 
   // -- ui status -----------------------------------------------------------
   bool busy = false;
@@ -249,6 +273,7 @@ class AppState extends ChangeNotifier {
     await loadContacts();
     await loadSchedule();
     await loadProposals();
+    await loadProviders();
   }
 
   Future<void> _loadCaregiver() async {
@@ -353,6 +378,88 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } on ApiException catch (error) {
       if (!error.isFeatureUnavailable) _fail(error);
+    }
+  }
+
+  // -- model and speech providers -----------------------------------------
+  /// Reads the effective provider configuration. A missing endpoint (older
+  /// backend) is not an error: the mic simply stays off, honestly.
+  Future<bool> loadProviders() async {
+    providersLoading = true;
+    notifyListeners();
+    try {
+      providers = await api.providers();
+      providerFeatureMissing = false;
+      return true;
+    } on ApiException catch (error) {
+      if (error.isFeatureUnavailable) providerFeatureMissing = true;
+      debugPrint('Provider status unavailable: $error');
+      return false;
+    } finally {
+      providersLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Saves a partial edit and adopts the server's answer (so the UI shows the
+  /// new status without a second round trip).
+  Future<ProviderStatus?> saveProviders(ProviderUpdate update) async {
+    try {
+      final status = await api.updateProviders(update);
+      providers = status;
+      providerFeatureMissing = false;
+      lastError = null;
+      notifyListeners();
+      return status;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Runs the real one-shot probe. Without [audio] the server answers ASR with
+  /// `reason: "no_sample"` rather than claiming success.
+  Future<ProviderTestResult?> testProviders({RecordedAudio? audio}) async {
+    try {
+      return await api.testProviders(
+        audioB64: audio?.base64,
+        audioMime: audio?.mimeType,
+      );
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Records a short clip for the Settings → microphone test.
+  ///
+  /// Returns null when the microphone is missing or nothing usable was captured;
+  /// the caller must show that honestly and never substitute a transcript.
+  Future<RecordedAudio?> captureProbeClip() async {
+    try {
+      if (!await microphone.isAvailable()) {
+        micUnavailable = true;
+        notifyListeners();
+        return null;
+      }
+      await microphone.startRecording();
+      if (probeDuration > Duration.zero) {
+        await Future<void>.delayed(probeDuration);
+      }
+      return await microphone.stopRecording();
+    } on MicrophoneUnavailable catch (error) {
+      micFailed = true;
+      micUnavailable = true;
+      debugPrint('Probe microphone unavailable: ${error.reason}');
+      notifyListeners();
+      return null;
+    } catch (error) {
+      micFailed = true;
+      debugPrint('Probe microphone failed: $error');
+      notifyListeners();
+      return null;
     }
   }
 
@@ -597,11 +704,15 @@ class AppState extends ChangeNotifier {
     return _sendTurn(text: value);
   }
 
-  Future<TurnResult?> _sendTurn({String? text, RecordedAudio? audio}) async {
+  Future<TurnResult?> _sendTurn({
+    String? text,
+    RecordedAudio? audio,
+    bool addLocalCaption = true,
+  }) async {
     final current = session;
     if (current == null) return null;
     sendingTurn = true;
-    if (text != null) {
+    if (text != null && addLocalCaption) {
       captions = <Caption>[
         ...captions,
         Caption(role: 'senior', text: text, at: _now().toUtc()),
@@ -616,20 +727,31 @@ class AppState extends ChangeNotifier {
         audioMime: audio?.mimeType,
       );
       lastTurn = result;
+      _pendingTurn = null;
       if (result.stopped) {
         await stopAll();
         return result;
       }
-      captions = result.captions.isNotEmpty
-          ? <Caption>[...result.captions]
-          : <Caption>[
-              ...captions,
-              Caption(
-                role: 'anchor',
-                text: result.replyText,
-                at: _now().toUtc(),
-              ),
-            ];
+      if (result.captions.isNotEmpty) {
+        captions = <Caption>[...result.captions];
+      } else {
+        final next = <Caption>[...captions];
+        // Audio turns have no optimistic caption: show the transcript the server
+        // actually recognised, or nothing at all — never a canned sentence.
+        if (audio != null && result.transcript.isNotEmpty) {
+          next.add(
+            Caption(
+              role: 'senior',
+              text: result.transcript,
+              at: _now().toUtc(),
+            ),
+          );
+        }
+        next.add(
+          Caption(role: 'anchor', text: result.replyText, at: _now().toUtc()),
+        );
+        captions = next;
+      }
       offline = false;
       lastError = null;
       notifyListeners();
@@ -639,6 +761,10 @@ class AppState extends ChangeNotifier {
       // The user pressed Stop: the late reply is discarded, nothing is shown.
       return null;
     } on ApiException catch (error) {
+      // Keep the failed request so Retry can resend it verbatim.
+      if (text != null || audio != null) {
+        _pendingTurn = _PendingTurn(text: text, audio: audio);
+      }
       _fail(error);
       if (error.code == 'session_stopped') {
         session = null;
@@ -648,6 +774,24 @@ class AppState extends ChangeNotifier {
       sendingTurn = false;
       notifyListeners();
     }
+  }
+
+  /// Resends the last failed turn (the Talk screen offers this for a 503).
+  ///
+  /// The local caption from the first attempt is kept, so a text retry does not
+  /// duplicate the senior's sentence. Returns null when nothing is pending.
+  Future<TurnResult?> retryLastTurn() async {
+    final pending = _pendingTurn;
+    if (pending == null) return null;
+    if (session == null) {
+      final opened = await startConversation();
+      if (!opened || session == null) return null;
+    }
+    return _sendTurn(
+      text: pending.text,
+      audio: pending.audio,
+      addLocalCaption: false,
+    );
   }
 
   /// What Repeat would say right now, or null when nothing has been said yet.
@@ -669,6 +813,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> startRecording() async {
+    // Without a real recogniser the backend would refuse the turn anyway, so
+    // never record something that cannot be transcribed (the UI shows why).
+    if (!asrConfigured) return false;
     if (micUnavailable) return false;
     try {
       await microphone.startRecording();
@@ -715,6 +862,7 @@ class AppState extends ChangeNotifier {
     sendingTurn = false;
     captions = <Caption>[];
     lastTurn = null;
+    _pendingTurn = null;
     final current = session;
     session = null;
     speechActive = false;
@@ -853,6 +1001,8 @@ class AppState extends ChangeNotifier {
     session = null;
     captions = <Caption>[];
     lastTurn = null;
+    _pendingTurn = null;
+    providers = null;
     _lastAnchorText = '';
     lastError = null;
     invitationToken = null;
@@ -933,4 +1083,12 @@ class AppState extends ChangeNotifier {
   /// Local evaluation of the proactive-invitation rules for the settings preview.
   InvitationDecision get invitationDecision =>
       invitationScheduler.evaluate(_now().toUtc());
+}
+
+/// A turn that failed for a recoverable reason and can be resent as-is.
+class _PendingTurn {
+  const _PendingTurn({this.text, this.audio});
+
+  final String? text;
+  final RecordedAudio? audio;
 }

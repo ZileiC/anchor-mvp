@@ -272,6 +272,35 @@ class ApiClient {
   Future<HealthInfo> health() async =>
       HealthInfo.fromJson(asMap(await _send('GET', '/health')));
 
+  // -- model and speech providers -----------------------------------------
+  /// What the backend will really use right now, with the key masked.
+  Future<ProviderStatus> providers() async =>
+      ProviderStatus.fromJson(asMap(await _send('GET', '/providers')));
+
+  /// Partial update: omitted fields keep their stored value, [clear] resets a
+  /// section. Takes effect without restarting the backend.
+  Future<ProviderStatus> updateProviders(ProviderUpdate update) async {
+    final payload = await _send('PUT', '/providers', body: update.toJson());
+    return ProviderStatus.fromJson(asMap(payload));
+  }
+
+  /// Real one-shot probe of the current configuration. With [audioB64] the ASR
+  /// half transcribes that clip; without it the server honestly answers
+  /// `reason: "no_sample"` instead of pretending speech works.
+  Future<ProviderTestResult> testProviders({
+    String? audioB64,
+    String? audioMime,
+  }) async {
+    final payload = await _send(
+      'POST',
+      '/providers/test',
+      body: audioB64 == null
+          ? null
+          : <String, Object?>{'audio_b64': audioB64, 'audio_mime': ?audioMime},
+    );
+    return ProviderTestResult.fromJson(asMap(payload));
+  }
+
   // -- invitations and family links ---------------------------------------
   Future<InvitationToken> createInvitation({int expiresInHours = 24}) async {
     final payload = await _send(

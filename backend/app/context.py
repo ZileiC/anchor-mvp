@@ -1,7 +1,7 @@
 """Service container built once per application (see ``create_app``)."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from .activities.engine import ActivityEngine
 from .checkins import CheckinService
@@ -15,7 +15,7 @@ from .digests.service import DigestService
 from .memory import MemoryService
 from .notifications import NotificationService
 from .preferences import PreferencesService
-from .providers import build_providers
+from .providers.config import build_asr, build_llm, load_provider_settings, resolve_asr, resolve_llm
 from .providers.notifier import DatabaseNotifier
 from .relationships import RelationshipService, ScheduleProposalService
 from .storage.retention import DataRightsService, RetentionService
@@ -28,11 +28,19 @@ class AppContext:
         db: Database,
         clock: Clock,
         providers: dict[str, Any] | None = None,
+        provider_transport: Optional[Any] = None,
     ) -> None:
         self.settings = settings
         self.db = db
         self.clock = clock
-        self.providers = providers if providers is not None else build_providers(settings, clock, db)
+        # Test/injection seam: adapters use this httpx transport when set.
+        self.provider_transport = provider_transport
+        self.providers: dict[str, Any] = providers if providers is not None else {}
+        if providers is None:
+            # Startup: honour the persisted Settings row, not just the environment.
+            self.rebuild_providers()
+        else:
+            self.providers.setdefault("notifier", DatabaseNotifier(db, clock))
 
         self.consent = ConsentService(db, clock)
         self.preferences = PreferencesService(db, clock)
@@ -58,6 +66,23 @@ class AppContext:
             memories=self.memory,
             activities=self.activities,
         )
+
+    def rebuild_providers(self) -> dict[str, Any]:
+        """Rebuild ASR/LLM from the stored settings row, mutating in place.
+
+        The orchestrator (and ``app.state.providers``) hold a reference to this
+        very dict, so a PUT to the Settings screen takes effect immediately and
+        without a restart.
+        """
+        stored = load_provider_settings(self.db)
+        self.providers["asr"] = build_asr(
+            resolve_asr(self.settings, stored), transport=self.provider_transport
+        )
+        self.providers["llm"] = build_llm(
+            resolve_llm(self.settings, stored), transport=self.provider_transport
+        )
+        self.providers.setdefault("notifier", DatabaseNotifier(self.db, self.clock))
+        return self.providers
 
     def close(self) -> None:
         self.db.close()

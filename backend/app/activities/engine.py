@@ -15,9 +15,12 @@ from ..clock import Clock, iso_utc, parse_iso
 from ..consent import ConsentService
 from ..db import Database
 from ..errors import AppError, validation_error
+from ..paths import activities_content_path
 from ..preferences import PreferencesService
 
-CONTENT_PATH = Path(__file__).resolve().parents[3] / "content" / "activities.json"
+# Kept for callers that import it; the engine resolves at construction time so a
+# frozen bundle reads <sys._MEIPASS>/content/activities.json (see app/paths.py).
+CONTENT_PATH = activities_content_path()
 TYPES = ("trivia", "story", "memory")
 MAX_DURATION_SECONDS = 7200
 
@@ -35,7 +38,7 @@ class ActivityEngine:
         self.clock = clock
         self.consent = consent or ConsentService(db, clock)
         self.preferences = preferences or PreferencesService(db, clock)
-        self.content_path = Path(content_path) if content_path else CONTENT_PATH
+        self.content_path = Path(content_path) if content_path else activities_content_path()
         self._content: Optional[dict[str, Any]] = None
 
     # -- content ----------------------------------------------------------

@@ -94,6 +94,37 @@ class FakeApi extends ApiClient {
   /// When set, `turn` waits for it — used to test that Stop discards a late reply.
   Completer<TurnResult>? pendingTurn;
 
+  /// Provider configuration the fake backend reports (default: nothing set up).
+  ProviderStatus providerStatusValue = const ProviderStatus(
+    llm: ProviderSectionStatus(
+      configured: false,
+      mode: 'offline',
+      engine: 'offline-rule',
+      model: 'deepseek-chat',
+    ),
+    asr: ProviderSectionStatus(
+      configured: false,
+      mode: 'offline',
+      engine: 'none',
+    ),
+  );
+  bool providersMissing = false;
+  int providersCalls = 0;
+  final List<ProviderUpdate> providerUpdates = <ProviderUpdate>[];
+  ProviderTestResult providerTestResult = const ProviderTestResult(
+    llm: ProviderProbeResult(ok: true, latencyMs: 42, replySample: '你好，我在这里。'),
+    asr: ProviderProbeResult(ok: false, reason: 'no_sample'),
+  );
+  ApiException? testError;
+  String? lastTestAudioB64;
+  String? lastTestAudioMime;
+
+  /// Recorded so tests can prove what was actually posted to the turn endpoint.
+  int turnCalls = 0;
+  String? lastTurnText;
+  String? lastTurnAudioB64;
+  ApiException? turnError;
+
   ApiException get offlineError => const ApiException(
     code: 'offline',
     message: 'no connection',
@@ -127,6 +158,72 @@ class FakeApi extends ApiClient {
   Future<Profile> me() async {
     if (offline) throw offlineError;
     return profile;
+  }
+
+  // -- providers -----------------------------------------------------------
+  @override
+  Future<ProviderStatus> providers() async {
+    providersCalls++;
+    if (offline) throw offlineError;
+    if (providersMissing) {
+      throw const ApiException(
+        code: 'not_found',
+        message: 'Not Found',
+        statusCode: 404,
+      );
+    }
+    return providerStatusValue;
+  }
+
+  @override
+  Future<ProviderStatus> updateProviders(ProviderUpdate update) async {
+    if (offline) throw offlineError;
+    providerUpdates.add(update);
+    providerStatusValue = ProviderStatus(
+      llm: update.llm == null
+          ? providerStatusValue.llm
+          : _applySection(providerStatusValue.llm, update.llm!),
+      asr: update.asr == null
+          ? providerStatusValue.asr
+          : _applySection(providerStatusValue.asr, update.asr!),
+      updatedAt: '2026-03-10T01:30:00Z',
+    );
+    return providerStatusValue;
+  }
+
+  @override
+  Future<ProviderTestResult> testProviders({
+    String? audioB64,
+    String? audioMime,
+  }) async {
+    if (offline) throw offlineError;
+    if (testError != null) throw testError!;
+    lastTestAudioB64 = audioB64;
+    lastTestAudioMime = audioMime;
+    return providerTestResult;
+  }
+
+  /// Mirrors the backend: blank values keep the stored value, an empty key keeps
+  /// the saved key, and `clear` resets the section.
+  ProviderSectionStatus _applySection(
+    ProviderSectionStatus current,
+    ProviderSectionUpdate edit,
+  ) {
+    if (edit.clear) return ProviderSectionStatus.unknown;
+    final base = edit.baseUrl ?? current.baseUrl;
+    final model = edit.model ?? current.model;
+    final keyHint = (edit.apiKey ?? '').isNotEmpty
+        ? 'sk-…test'
+        : current.keyHint;
+    final configured = (base ?? '').isNotEmpty && keyHint != null;
+    return ProviderSectionStatus(
+      configured: configured,
+      mode: configured ? 'http' : 'offline',
+      engine: configured ? 'http' : current.engine,
+      baseUrl: base,
+      model: model,
+      keyHint: keyHint,
+    );
   }
 
   // -- senior data ---------------------------------------------------------
@@ -370,10 +467,14 @@ class FakeApi extends ApiClient {
     String? audioMime,
   }) async {
     final ticket = nonce.value;
+    turnCalls++;
+    lastTurnText = text;
+    lastTurnAudioB64 = audioB64;
     if (offline) throw offlineError;
+    if (turnError != null) throw turnError!;
     final result = pendingTurn == null
         ? TurnResult(
-            transcript: text ?? '',
+            transcript: text ?? (audioB64 == null ? '' : '这是识别结果'),
             replyText: '好的，我在听。',
             intent: 'chat',
             stopped: false,
@@ -445,6 +546,42 @@ class FakeApi extends ApiClient {
   Future<Map<String, int>> deleteData() async => <String, int>{'memories': 1};
 }
 
+/// Microphone double: captures a fixed WAV clip without touching a device.
+class FakeMicrophoneInput implements MicrophoneInput {
+  FakeMicrophoneInput({this.available = true});
+
+  bool available;
+  RecordedAudio? captured = const RecordedAudio(
+    base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEA',
+    mimeType: 'audio/wav',
+  );
+  int startCalls = 0;
+  int stopCalls = 0;
+  int cancelCalls = 0;
+
+  @override
+  Future<bool> isAvailable() async => available;
+
+  @override
+  Future<void> startRecording() async {
+    startCalls++;
+  }
+
+  @override
+  Future<RecordedAudio?> stopRecording() async {
+    stopCalls++;
+    return captured;
+  }
+
+  @override
+  Future<void> cancel() async {
+    cancelCalls++;
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
 /// A state wired to doubles: no plugins, no network, a frozen clock, a manual
 /// invitation ticker (so no real timer leaks into a test).
 AppState buildTestState(
@@ -453,14 +590,17 @@ AppState buildTestState(
   ManualTicker? ticker,
   InvitationController? invitationController,
   DateTime Function()? now,
+  MicrophoneInput? microphone,
+  Duration probeDuration = Duration.zero,
 }) {
   final clock = now ?? (() => DateTime.utc(2026, 3, 10, 1, 30));
   return AppState(
     api: api,
     speaker: SilentSpeaker(),
-    microphone: UnavailableMicrophoneInput(),
+    microphone: microphone ?? UnavailableMicrophoneInput(),
     dialer: dialer ?? FakeDialer(),
     now: clock,
+    probeDuration: probeDuration,
     invitationController:
         invitationController ??
         InvitationController(

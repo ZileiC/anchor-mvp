@@ -387,4 +387,154 @@ void main() {
       await api.stopSession('session-1');
     });
   });
+
+  group('providers', () {
+    test(
+      'GET /providers parses the effective engines and the masked key',
+      () async {
+        Uri? sentUrl;
+        final api = stubApi((method, url, headers, body) async {
+          sentUrl = url;
+          return jsonResponse(<String, Object?>{
+            'llm': <String, Object?>{
+              'configured': true,
+              'base_url': 'https://api.deepseek.com',
+              'model': 'deepseek-chat',
+              'key_hint': 'sk-…abcd',
+              'mode': 'http',
+              'engine': 'http',
+            },
+            'asr': <String, Object?>{
+              'configured': true,
+              'base_url': null,
+              'model': 'whisper-1',
+              'key_hint': null,
+              'mode': 'offline',
+              'engine': 'windows-sapi',
+            },
+            'updated_at': '2026-03-10T01:30:00Z',
+          });
+        }, token: 'tok');
+
+        final providers = await api.providers();
+
+        expect(sentUrl.toString(), 'http://127.0.0.1:8077/api/v1/providers');
+        expect(providers.llm.configured, isTrue);
+        expect(providers.llm.usesHttp, isTrue);
+        expect(providers.llm.keyHint, 'sk-…abcd');
+        expect(providers.asr.isWindowsSapi, isTrue);
+        expect(providers.asr.configured, isTrue);
+        expect(providers.updatedAt, '2026-03-10T01:30:00Z');
+      },
+    );
+
+    test('PUT /providers sends only the fields that changed', () async {
+      String? sentMethod;
+      String? sentBody;
+      final api = stubApi((method, url, headers, body) async {
+        sentMethod = method;
+        sentBody = body;
+        return jsonResponse(<String, Object?>{
+          'llm': <String, Object?>{
+            'configured': true,
+            'mode': 'http',
+            'engine': 'http',
+            'key_hint': 'sk-…test',
+          },
+          'asr': <String, Object?>{'configured': false, 'engine': 'none'},
+        });
+      }, token: 'tok');
+
+      await api.updateProviders(
+        const ProviderUpdate(
+          llm: ProviderSectionUpdate(
+            baseUrl: 'https://api.deepseek.com',
+            model: 'deepseek-chat',
+          ),
+        ),
+      );
+
+      expect(sentMethod, 'PUT');
+      expect(jsonDecode(sentBody!), <String, Object?>{
+        'llm': <String, Object?>{
+          'base_url': 'https://api.deepseek.com',
+          'model': 'deepseek-chat',
+        },
+      });
+    });
+
+    test('a reset sends clear:true on its own', () async {
+      String? sentBody;
+      final api = stubApi((method, url, headers, body) async {
+        sentBody = body;
+        return jsonResponse(<String, Object?>{});
+      }, token: 'tok');
+
+      await api.updateProviders(
+        const ProviderUpdate(asr: ProviderSectionUpdate(clear: true)),
+      );
+
+      expect(jsonDecode(sentBody!), <String, Object?>{
+        'asr': <String, Object?>{'clear': true},
+      });
+    });
+
+    test(
+      'POST /providers/test sends the recorded clip and parses both halves',
+      () async {
+        String? sentBody;
+        final api = stubApi((method, url, headers, body) async {
+          sentBody = body;
+          return jsonResponse(<String, Object?>{
+            'llm': <String, Object?>{
+              'ok': true,
+              'latency_ms': 25,
+              'reply_sample': '你好。',
+              'error': null,
+            },
+            'asr': <String, Object?>{
+              'ok': true,
+              'latency_ms': 120,
+              'text_sample': '今天天气很好',
+              'error': null,
+            },
+          });
+        }, token: 'tok');
+
+        final result = await api.testProviders(
+          audioB64: 'UklGRg==',
+          audioMime: 'audio/wav',
+        );
+
+        expect(jsonDecode(sentBody!), <String, Object?>{
+          'audio_b64': 'UklGRg==',
+          'audio_mime': 'audio/wav',
+        });
+        expect(result.llm.ok, isTrue);
+        expect(result.llm.replySample, '你好。');
+        expect(result.asr.textSample, '今天天气很好');
+      },
+    );
+
+    test(
+      'without a clip the server reports no_sample, not a failure',
+      () async {
+        String? sentBody;
+        final api = stubApi((method, url, headers, body) async {
+          sentBody = body;
+          return jsonResponse(<String, Object?>{
+            'llm': <String, Object?>{'ok': false, 'error': 'not_configured'},
+            'asr': <String, Object?>{'ok': false, 'reason': 'no_sample'},
+          });
+        }, token: 'tok');
+
+        final result = await api.testProviders();
+
+        expect(sentBody, isNull);
+        expect(result.llm.error, 'not_configured');
+        expect(result.asr.ok, isFalse);
+        expect(result.asr.reason, 'no_sample');
+      },
+    );
+  });
 }

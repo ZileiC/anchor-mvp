@@ -16,7 +16,7 @@ def test_defaults_are_dev_safe(monkeypatch):
     assert settings.secret == DEFAULT_DEV_SECRET
     assert settings.db_path.endswith("anchor.db")
     assert settings.timezone == "Asia/Shanghai"
-    assert settings.asr_provider == "fake"
+    assert settings.asr_provider == "none"  # honest "not configured", never FakeASR
     assert settings.llm_provider == "rule"
     assert settings.token_ttl_seconds == 86400
     assert settings.job_lease_seconds == 120
@@ -57,6 +57,14 @@ def test_invalid_env_rejected():
 def test_invalid_provider_rejected():
     with pytest.raises(ValueError):
         Settings(llm_provider="magic")
+
+
+def test_honest_provider_modes_are_accepted():
+    assert Settings(asr_provider="none").asr_provider == "none"
+    assert Settings(asr_provider="auto").asr_provider == "auto"
+    assert Settings(asr_provider="fake").asr_provider == "fake"
+    assert Settings(llm_provider="none").llm_provider == "none"
+    assert Settings(llm_provider="rule").llm_provider == "rule"
 
 
 def test_http_provider_requires_url_in_production():

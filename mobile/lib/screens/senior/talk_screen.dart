@@ -31,7 +31,19 @@ class _TalkScreenState extends State<TalkScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSession());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureSession();
+      _refreshProviders();
+    });
+  }
+
+  /// The provider status decides whether the mic may record: it is re-read on
+  /// open and after the user comes back from Settings, so a just-saved key takes
+  /// effect without restarting the app.
+  Future<void> _refreshProviders() async {
+    if (!mounted) return;
+    await widget.state.loadProviders();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -62,6 +74,69 @@ class _TalkScreenState extends State<TalkScreen> {
     await widget.state.sendText(text);
   }
 
+  /// Opens Settings and re-reads the provider status on the way back.
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SettingsScreen(state: widget.state),
+      ),
+    );
+    await _refreshProviders();
+  }
+
+  /// Honest mic gate: no recogniser means no recording and no transcript.
+  Future<void> _showAsrUnavailableDialog() async {
+    final l = widget.state.l;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('talk-asr-dialog'),
+        backgroundColor: AnchorTheme.surface,
+        title: Text(
+          l.asrNotConnectedTitle,
+          style: const TextStyle(fontSize: 28),
+        ),
+        content: Text(
+          l.asrNotConnectedBody,
+          style: const TextStyle(fontSize: 24, color: AnchorTheme.ink),
+        ),
+        actions: <Widget>[
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AnchorTheme.minTouchTarget,
+            ),
+            child: TextButton(
+              key: const Key('talk-asr-type-instead'),
+              onPressed: () => Navigator.of(dialogContext).pop('type'),
+              child: Text(l.typeInstead, style: const TextStyle(fontSize: 24)),
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AnchorTheme.minTouchTarget,
+            ),
+            child: FilledButton(
+              key: const Key('talk-asr-go-settings'),
+              onPressed: () => Navigator.of(dialogContext).pop('settings'),
+              child: Text(l.goToSettings, style: const TextStyle(fontSize: 24)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'type') {
+      _focusTyping();
+    } else if (action == 'settings') {
+      await _openSettings();
+    }
+  }
+
+  Future<void> _retryTurn() async {
+    await widget.state.retryLastTurn();
+    if (mounted) setState(() {});
+  }
+
   Future<void> _stop() async {
     await widget.state.stopAll();
     if (!mounted) return;
@@ -72,6 +147,10 @@ class _TalkScreenState extends State<TalkScreen> {
 
   Future<void> _toggleMic() async {
     final state = widget.state;
+    if (!state.recording && !state.asrConfigured) {
+      await _showAsrUnavailableDialog();
+      return;
+    }
     if (state.recording) {
       await state.stopRecordingAndSend();
     } else {
@@ -124,11 +203,7 @@ class _TalkScreenState extends State<TalkScreen> {
               body: l.talkConsentNeeded,
               extraAction: OutlinedButton.icon(
                 key: const Key('talk-open-settings'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SettingsScreen(state: state),
-                  ),
-                ),
+                onPressed: _openSettings,
                 icon: const Icon(Icons.settings, size: 28),
                 label: Text(l.goToSettings),
               ),
@@ -141,6 +216,20 @@ class _TalkScreenState extends State<TalkScreen> {
               onRetry: _ensureSession,
               extraAction: OutlinedButton.icon(
                 key: const Key('talk-type-instead'),
+                onPressed: _focusTyping,
+                icon: const Icon(Icons.keyboard, size: 28),
+                label: Text(l.typeInstead),
+              ),
+            )
+          else if (state.lastError?.code == 'provider_unavailable')
+            StatusBanner(
+              l: l,
+              tone: BannerTone.problem,
+              title: l.providerUnavailableTitle,
+              body: l.providerUnavailableBody,
+              onRetry: _retryTurn,
+              extraAction: OutlinedButton.icon(
+                key: const Key('talk-provider-type-instead'),
                 onPressed: _focusTyping,
                 icon: const Icon(Icons.keyboard, size: 28),
                 label: Text(l.typeInstead),
@@ -164,6 +253,10 @@ class _TalkScreenState extends State<TalkScreen> {
               title: l.micUnavailable,
               tone: BannerTone.notice,
             ),
+          if (state.showOfflineLlmBadge) ...<Widget>[
+            _offlineLlmBadge(l),
+            const SizedBox(height: 8),
+          ],
           _captions(l, state),
           const SizedBox(height: 12),
           if (_stoppedLocally) ...<Widget>[
@@ -179,12 +272,15 @@ class _TalkScreenState extends State<TalkScreen> {
   }
 
   Widget _micIndicator(L l, AppState state) {
-    final on = state.hasActiveSession && !state.recording;
+    final asrReady = state.asrConfigured;
+    final on = asrReady && state.hasActiveSession && !state.recording;
     final recording = state.recording;
     final color = recording
         ? AnchorTheme.danger
         : (on ? AnchorTheme.primary : AnchorTheme.muted);
-    final label = recording ? l.listening : (on ? l.micOn : l.micOff);
+    final label = recording
+        ? l.listening
+        : (!asrReady ? l.micNotConnected : (on ? l.micOn : l.micOff));
     return Semantics(
       label: label,
       liveRegion: true,
@@ -199,7 +295,9 @@ class _TalkScreenState extends State<TalkScreen> {
         child: Row(
           children: <Widget>[
             Icon(
-              recording ? Icons.mic : Icons.mic_none,
+              recording
+                  ? Icons.mic
+                  : (asrReady ? Icons.mic_none : Icons.mic_off),
               size: 34,
               color: color,
             ),
@@ -222,6 +320,33 @@ class _TalkScreenState extends State<TalkScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _offlineLlmBadge(L l) {
+    return Container(
+      key: const Key('talk-offline-llm-badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4D6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF8A5A00), width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Icon(Icons.info_outline, size: 20, color: Color(0xFF8A5A00)),
+          const SizedBox(width: 6),
+          Text(
+            l.llmOfflineBadge,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AnchorTheme.ink,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -325,6 +450,7 @@ class _TalkScreenState extends State<TalkScreen> {
   }
 
   Widget _controls(L l, AppState state) {
+    final asrReady = state.asrConfigured;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -334,9 +460,24 @@ class _TalkScreenState extends State<TalkScreen> {
             child: FilledButton.icon(
               key: const Key('talk-mic'),
               onPressed: _toggleMic,
-              icon: Icon(state.recording ? Icons.stop : Icons.mic, size: 32),
+              // Greyed but still tappable: tapping explains *why* instead of
+              // silently doing nothing. Without a recogniser nothing is recorded.
+              style: asrReady
+                  ? null
+                  : FilledButton.styleFrom(
+                      backgroundColor: AnchorTheme.muted,
+                      foregroundColor: AnchorTheme.surface,
+                    ),
+              icon: Icon(
+                state.recording
+                    ? Icons.stop
+                    : (asrReady ? Icons.mic : Icons.mic_off),
+                size: 32,
+              ),
               label: Text(
-                state.recording ? l.doneSpeaking : l.startTalking,
+                state.recording
+                    ? l.doneSpeaking
+                    : (asrReady ? l.startTalking : l.micNotConnected),
                 style: const TextStyle(fontSize: 26),
               ),
             ),

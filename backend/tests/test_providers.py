@@ -135,16 +135,32 @@ def test_http_asr_error_maps_to_provider_unavailable():
     assert excinfo.value.extra["recovery"] == ["retry", "type_instead"]
 
 
-def test_build_providers_defaults_to_offline_adapters(tmp_path):
+def test_build_providers_defaults_are_honest(tmp_path):
+    """No configuration at all: the LLM is the offline rule engine and the ASR
+    refuses instead of returning a canned transcript (never FakeASR)."""
+    from app.clock import FakeClock
+    from app.db import Database
+    from app.providers.unavailable import UnavailableASR
+
+    db = Database(tmp_path / "a.db")
+    db.migrate()
+    providers = build_providers(Settings(env="test", db_path=str(tmp_path / "a.db")), FakeClock(), db)
+    assert isinstance(providers["asr"], UnavailableASR)
+    assert isinstance(providers["llm"], RuleLLM)
+    assert providers["notifier"] is not None
+    db.close()
+
+
+def test_build_providers_fake_asr_only_when_explicitly_asked(tmp_path):
+    """FakeASR stays available for tests/injection, never as an untouched default."""
     from app.clock import FakeClock
     from app.db import Database
 
     db = Database(tmp_path / "a.db")
     db.migrate()
-    providers = build_providers(Settings(env="test", db_path=str(tmp_path / "a.db")), FakeClock(), db)
+    settings = Settings(env="test", db_path=str(tmp_path / "a.db"), asr_provider="fake")
+    providers = build_providers(settings, FakeClock(), db)
     assert isinstance(providers["asr"], FakeASR)
-    assert isinstance(providers["llm"], RuleLLM)
-    assert providers["notifier"] is not None
     db.close()
 
 

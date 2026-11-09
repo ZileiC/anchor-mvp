@@ -28,9 +28,27 @@ environment caveats.
 ## Demo build (no Flutter install needed)
 
 [**Download the Windows x64 build →**](https://github.com/ZileiC/anchor-mvp/releases/latest)
-(`anchor-mvp-windows-x64.zip`, ~32 MB). Unzip, start the local backend with the commands below, then
-run `anchor_app.exe`. Demo accounts: **1 = 林秀兰** (older adult), **2 = Mei** (caregiver). The zip
-contains `README-DEMO.txt` with the same instructions.
+(`AnchorDemo-0.2.0.zip`, ~44 MB). **Double-click `anchor_app.exe`** — it auto-starts the bundled
+backend, no Python/Flutter needed. Demo accounts: **1 = 林秀兰** (older adult), **2 = Mei**
+(caregiver). Then open **Settings → AI 接入** and paste a DeepSeek key for real model replies (the
+packaged backend already uses the local Windows recognizer for voice). The zip contains
+`README-DEMO.txt` with the same instructions.
+
+## Connect a real model and real speech (do this before demoing)
+
+The app is honest by default: replies come from a deterministic offline template engine (labelled
+“离线模板回复”) and the mic is disabled unless a recognizer exists. To make the demo real:
+
+1. Open **Settings → AI 接入（模型/语音）**.
+2. Tap **填入 DeepSeek 预设**, paste your API key, **保存**, then **测试连接** — a real reply sample
+   proves the endpoint works. Replies become model-generated immediately (no restart).
+3. Speech: on Windows the packaged backend uses the local System.Speech recognizer automatically
+   (`本机离线语音`, zh-CN when installed); no key needed. Alternatively configure an OpenAI-compatible
+   ASR endpoint on the same screen. Without either, Talk says “语音识别还没有接入” and keeps typing.
+
+Live-verified on this machine: DeepSeek reply “好呀，我陪你聊聊。你阳台上那些花，最近开得怎么样？”;
+SAPI transcript “今天天气不错” from a spoken WAV. Keys stay in the local SQLite file for this
+self-hosted demo, are masked in every API response, and are never logged.
 
 ## Quickstart (Windows)
 

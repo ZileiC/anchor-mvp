@@ -23,14 +23,18 @@ Those are engineering controls, not evidence about older adults.
 
 ## 2. Product/technology limitations
 
-1. **Speech adapters are replaceable but unevaluated.** The offline default is a fake ASR used by
-   tests; the hosted adapter is OpenAI-compatible but has not been benchmarked against older-adult
-   Mandarin or dialect speech. Dialect support **cannot be claimed** from this build.
-2. **Text fallback is not the speech target.** Typing into Talk recovers from a failed recognition,
-   but it does not satisfy the one-sentence voice-access requirement in S4.
-3. **TTS voice is not the target voice.** Device TTS (flutter_tts) is used on the demo machine; its
-   timbre affects whether an older adult answers, so “answering rate” measured on a laptop is an
-   artefact, not a product result.
+1. **Speech adapters: real but not benchmarked.** On Windows the packaged demo uses the local
+   System.Speech recognizer (`windows-sapi`) — genuine recognition, no key, but it can cut at pauses
+   and has no dialect tuning; HTTP ASR is implementable via `PUT /providers` but no vendor key was
+   tested. WER and dialect support **cannot be claimed** from this build; text fallback is still not
+   the speech target.
+2. **The LLM is a real model only after it is configured.** Default `rule` replies are deterministic
+   templates; the UI labels them “离线模板回复”. `Settings → AI 接入` connects a DeepSeek/OpenAI-
+   compatible endpoint (live-verified on this machine: “好呀，我陪你聊聊。你阳台上那些花，最近开得
+   怎么样？”). Until a key is entered, no claim of model quality should be made.
+3. **Provider keys are stored in plaintext** in the local SQLite file for this self-hosted demo;
+   never distribute `backend/data/anchor.db` with a key inside. The API masks keys and never logs
+   them.
 4. **Desktop demo form.** The demo runs as a Windows desktop app; the target form is a phone/tablet
    (or fixed home device). Reactions to a laptop do not generalise, and the contradiction between a
    “high-risk older adult” who does not use a phone and this form is unvalidated.
@@ -45,20 +49,20 @@ Those are engineering controls, not evidence about older adults.
    through a short-lived PowerShell `System.Speech` child process (`WindowsSapiSpeaker`), which is
    verified on the built exe; Stop kills the child. The voice is therefore the OS voice (not the
    product's target voice), and Android's flutter_tts path is untested on a device.
-7. **Proactive frequency is one opt-in invitation per day**, an explicit MVP resolution of the
+8. **Proactive frequency is one opt-in invitation per day**, an explicit MVP resolution of the
    conflicting source targets (two/day minimum vs one/day cap). It does not claim the four-to-six
    initiation target; raising the cap requires user testing and the older adult's approval.
-8. **Microphone capture depends on the `record` plugin and OS permission.** If capture is
+9. **Microphone capture depends on the `record` plugin and OS permission.** If capture is
    unavailable, Talk falls back to text; the mic indicator is then showing a text session, not audio.
-9. **Worker is single-host.** SQLite + one worker suit a small pilot. Multiple workers on different
-   hosts would race on the DB; move to a server database first.
-10. **Deletion honours application storage, not provider copies.** Hosted ASR/LLM vendors may retain
+10. **Worker is single-host.** SQLite + one worker suit a small pilot. Multiple workers on different
+    hosts would race on the DB; move to a server database first.
+11. **Deletion honours application storage, not provider copies.** Hosted ASR/LLM vendors may retain
     requests; say so in the consent copy and configure the vendor account accordingly.
-11. **A caregiver cache cannot be recalled.** After revocation, future reads are blocked, but content
+12. **A caregiver cache cannot be recalled.** After revocation, future reads are blocked, but content
     a caregiver already saw or copied stays with them.
-12. **No camera, no continuous recording, no diagnosis, no scores, no fall detection, no automatic
+13. **No camera, no continuous recording, no diagnosis, no scores, no fall detection, no automatic
     emergency escalation** — by design. The manifest test asserts the camera-free surface.
-13. **No user study is included in this repository.** The consent form and interview scripts live in
+14. **No user study is included in this repository.** The consent form and interview scripts live in
     the TA5 materials; the measurement protocol here is the engineering half only.
 
 ## 3. Environment caveats (build, not product)

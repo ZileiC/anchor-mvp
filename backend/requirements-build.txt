@@ -1,0 +1,4 @@
+# Build-time-only dependencies for scripts/build_backend.ps1.
+# Runtime dependencies stay in requirements.txt; PyInstaller must never leak into
+# the backend runtime/test environment contract.
+pyinstaller==6.22.3

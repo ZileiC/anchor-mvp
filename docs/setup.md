@@ -72,6 +72,36 @@ providers is configuration only (`app/providers/__init__.py:build_providers`).
 **Speech data note:** with the `http` ASR provider, audio leaves the device. The consent screen must
 say “声音会经过网络” before enabling cloud processing; the backend never persists raw audio.
 
+### 3.1 Connecting a real model and real speech (required for a convincing demo)
+
+The offline defaults are deliberate: `rule` is a deterministic template engine and ASR is `none`
+unless a provider or the local Windows recognizer is available. The app ships **Settings → AI 接入**
+for the older adult (or the demo operator):
+
+1. **LLM** — paste a DeepSeek (or any OpenAI-compatible) base URL + model + API key. The
+   **填入 DeepSeek 预设** button fills `https://api.deepseek.com` / `deepseek-chat`. Save then
+   **测试连接**; a reply sample proves the key works. Replies become real immediately (no restart).
+2. **ASR** — on Windows the effective engine is `windows-sapi` (offline System.Speech, zh-CN when
+   installed): real recognition, no key. Alternatively configure an OpenAI-compatible
+   `/audio/transcriptions` endpoint. If neither exists, the Talk mic is disabled with an honest
+   “语音识别还没有接入” message and typing stays available.
+3. Keys are stored in the local SQLite file in plaintext for this self-hosted demo (documented
+   limitation; never ship the DB). They are masked in every API response and never logged.
+
+Equivalent environment configuration (takes effect on start; a stored row wins over env):
+
+```powershell
+$env:ANCHOR_LLM_PROVIDER = "http"
+$env:ANCHOR_LLM_URL = "https://api.deepseek.com"
+$env:ANCHOR_LLM_API_KEY = "sk-..."
+$env:ANCHOR_LLM_MODEL = "deepseek-chat"
+$env:ANCHOR_ASR_PROVIDER = "auto"   # windows-sapi on this machine; or http + URL/KEY/MODEL; or none
+```
+
+The packaged demo exe sets `ANCHOR_ASR_PROVIDER=auto` itself. `GET /api/v1/providers` reports the
+effective engine; `PUT /api/v1/providers` and `POST /api/v1/providers/test` are the runtime API
+(SPEC §6.9).
+
 ## 4. Database
 
 - SQLite file at `ANCHOR_DB_PATH`; WAL mode; one process-wide connection with serialized writes.

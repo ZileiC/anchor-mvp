@@ -133,3 +133,25 @@ supersede it with a new entry.
 - **Consequences:** No measurement is faked; the suite documents exactly what is automated and what
   is still manual. Digest render counts are distinct observed days (the wording says "days"), not
   raw observation rows.
+
+## 2026-11-09 — Real providers at runtime; "not configured" is an honest state
+
+- **Context:** the demo shipped a deterministic rule LLM and a canned `FakeASR`, so "voice input"
+  returned a fixed transcript even with nothing configured. A reviewer rightly called that fake.
+- **Decision:** `GET/PUT/POST /api/v1/providers` (senior-only) manage a singleton
+  `provider_settings` row (migration 002); effective providers resolve **stored row (URL+key) →
+  `ANCHOR_*` environment → offline default**, so a `PUT` rebuilds `AppContext.providers` in place
+  and the orchestrator picks it up with no restart (startup also rebuilds from the row). Notes:
+  (a) explicit `ANCHOR_LLM_PROVIDER=none` / `ANCHOR_ASR_PROVIDER=none` build adapters that raise
+  `provider_unavailable` with `recovery=["type_instead","configure"]`; (b) the ASR default is
+  `none`, so `FakeASR` is never a silent default and stays test/injection-only; (c) the packaged
+  `entrypoint.py` sets `ANCHOR_ASR_PROVIDER=auto`, which selects the real offline Windows SAPI
+  recognizer when one is installed (else `none`); (d) `POST /providers/test` performs a real
+  one-shot 10 s LLM call and a real ASR transcription when `audio_b64` is supplied.
+- **Consequences:** The Settings screen must show `configured: false` honestly (LLM defaults to the
+  offline rule engine, ASR refuses with a typed 503) until a real provider is entered/working.
+  Keys are **stored in plaintext** in the local SQLite file — acceptable only for this self-hosted
+  single-machine demo (documented in the migration); they are never logged or returned (the API
+  only exposes `key_hint`). Audio still leaves only in memory; the SAPI path writes a temp WAV that
+  is deleted immediately. One test contract changed on purpose: the default ASR is no longer
+  `FakeASR`, and `test_frozen_paths` now sees migration 002.
