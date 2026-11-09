@@ -75,8 +75,14 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     if (status == null || !overwrite) return;
     _llmBase.text = status.llm.baseUrl ?? '';
     _llmModel.text = status.llm.model;
-    _asrBase.text = status.asr.baseUrl ?? '';
-    _asrModel.text = status.asr.model;
+    // Show the shipped defaults instead of an empty box: the backend already
+    // treats "key with no endpoint" as this endpoint, and an empty field is what
+    // made a correctly saved key look like it was never applied.
+    final asrBase = status.asr.baseUrl ?? '';
+    _asrBase.text = asrBase.isEmpty ? 'https://api.siliconflow.cn/v1' : asrBase;
+    final asrModel = status.asr.model;
+    _asrModel.text =
+        asrModel.isEmpty ? 'FunAudioLLM/SenseVoiceSmall' : asrModel;
   }
 
   String? _trim(String value) {
@@ -103,9 +109,20 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
   void _applyDeepSeekPreset() {
     setState(() {
       _llmBase.text = 'https://api.deepseek.com';
-      _llmModel.text = 'deepseek-chat';
+      // deepseek-flash is the fast tier this account exposes; the demo's whole
+      // conversation budget is latency, so that is the default, not deepseek-chat.
+      _llmModel.text = 'deepseek-flash';
       _llmTestMessage = null;
       _llmTestFailed = false;
+    });
+  }
+
+  void _applyAsrPreset() {
+    setState(() {
+      _asrBase.text = 'https://api.siliconflow.cn/v1';
+      _asrModel.text = 'FunAudioLLM/SenseVoiceSmall';
+      _asrTestMessage = null;
+      _asrTestFailed = false;
     });
   }
 
@@ -538,6 +555,15 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
                 icon: const Icon(Icons.graphic_eq, size: 26),
                 label: Text(
                   l.aiAsrTestMic,
+                  style: const TextStyle(fontSize: 24),
+                ),
+              ),
+              OutlinedButton.icon(
+                key: const Key('ai-asr-preset'),
+                onPressed: _applyAsrPreset,
+                icon: const Icon(Icons.auto_fix_high, size: 26),
+                label: Text(
+                  l.aiAsrPreset,
                   style: const TextStyle(fontSize: 24),
                 ),
               ),

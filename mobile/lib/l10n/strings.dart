@@ -288,7 +288,12 @@ class L {
   String aiSavedKeyHint(String hint) => t('已保存密钥：$hint', 'Saved key: $hint');
   String get aiDeepSeekPreset => t('填入 DeepSeek 预设', 'Fill in DeepSeek preset');
   String get aiDeepSeekPresetHint =>
-      t('api.deepseek.com · deepseek-chat', 'api.deepseek.com · deepseek-chat');
+      t('api.deepseek.com · deepseek-flash', 'api.deepseek.com · deepseek-flash');
+  String get aiAsrPreset => t('填入硅基流动预设', 'Fill in SiliconFlow preset');
+  String get aiAsrPresetHint => t(
+    'api.siliconflow.cn · SenseVoiceSmall',
+    'api.siliconflow.cn · SenseVoiceSmall',
+  );
   String get aiStatusLine => t('状态', 'Status');
   String get aiStatusHttp => t('已接入 · http', 'Connected · http');
   String get aiStatusOfflineLlm =>

@@ -113,7 +113,7 @@ void main() {
             .widget<TextField>(find.byKey(const Key('ai-llm-model')))
             .controller!
             .text,
-        'deepseek-chat',
+        'deepseek-flash',
       );
 
       await disposeApp(tester);
@@ -140,7 +140,7 @@ void main() {
       expect(api.providerUpdates.single.llm!.toJson(), <String, Object?>{
         'base_url': 'https://api.deepseek.com',
         'api_key': 'sk-test-123456',
-        'model': 'deepseek-chat',
+        'model': 'deepseek-flash',
       });
 
       final status = tester.widget<Text>(

@@ -41,8 +41,15 @@ from .unavailable import (
 )
 
 DEFAULT_LLM_BASE_URL = "https://api.deepseek.com"
-DEFAULT_LLM_MODEL = "deepseek-chat"
-DEFAULT_ASR_MODEL = "whisper-1"
+# Fast chat model: the demo lives and dies on latency, and deepseek-flash is the
+# quick tier the account actually exposes (GET /models returned deepseek-flash
+# and deepseek-v4-pro on 2026-11-09).
+DEFAULT_LLM_MODEL = "deepseek-flash"
+# Speech-to-text default: SiliconFlow serves an OpenAI-compatible
+# /audio/transcriptions endpoint and works from this network, unlike
+# api.openai.com (unreachable here, measured 2026-11-09).
+DEFAULT_ASR_BASE_URL = "https://api.siliconflow.cn/v1"
+DEFAULT_ASR_MODEL = "FunAudioLLM/SenseVoiceSmall"
 
 SETTINGS_TABLE = "provider_settings"
 ALL_COLUMNS = ("llm_base_url", "llm_api_key", "llm_model", "asr_base_url", "asr_api_key", "asr_model")
@@ -150,8 +157,12 @@ def resolve_llm(settings: Settings, stored: Optional[Mapping[str, Any]]) -> Prov
     base = _text(row.get("llm_base_url"))
     key = _text(row.get("llm_api_key"))
     model = _text(row.get("llm_model")) or _text(settings.llm_model) or DEFAULT_LLM_MODEL
-    if base and key:
-        return ProviderConfig("http", base, key, model, "stored")
+    if key:
+        # Same rule as ASR: a saved key with no endpoint means "use the product
+        # default", never "silently keep the offline template replies".
+        return ProviderConfig(
+            "http", base or DEFAULT_LLM_BASE_URL, key, model, "stored"
+        )
     mode = settings.llm_provider
     if mode == "http":
         return ProviderConfig(
@@ -167,8 +178,13 @@ def resolve_asr(settings: Settings, stored: Optional[Mapping[str, Any]]) -> Prov
     base = _text(row.get("asr_base_url"))
     key = _text(row.get("asr_api_key"))
     model = _text(row.get("asr_model")) or _text(settings.asr_model) or DEFAULT_ASR_MODEL
-    if base and key:
-        return ProviderConfig("http", base, key, model, "stored")
+    if key:
+        # A key without an explicit endpoint is NOT "half configured": the
+        # product ships a working default endpoint. Falling back to the local
+        # SAPI recogniser here is exactly the bug that made a configured cloud
+        # key look broken (2026-11-09: the key was saved, the URL field was
+        # empty, and every word came back "没有听清").
+        return ProviderConfig("http", base or DEFAULT_ASR_BASE_URL, key, model, "stored")
     mode = settings.asr_provider
     if mode == "http":
         env_base = _text(settings.asr_url)
