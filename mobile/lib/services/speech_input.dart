@@ -60,13 +60,15 @@ class RecordMicrophoneInput implements MicrophoneInput {
 
   @override
   Future<void> startRecording() async {
+    String? created;
     try {
       final allowed = await _recorder.hasPermission();
       if (!allowed) {
         throw const MicrophoneUnavailable('permission denied');
       }
       final directory = await Directory.systemTemp.createTemp('anchor-turn');
-      _path = '${directory.path}${Platform.pathSeparator}turn.wav';
+      created = '${directory.path}${Platform.pathSeparator}turn.wav';
+      _path = created;
       await _recorder.start(
         const RecordConfig(
           encoder: AudioEncoder.wav,
@@ -79,6 +81,8 @@ class RecordMicrophoneInput implements MicrophoneInput {
       rethrow;
     } catch (error) {
       _path = null;
+      // A failed start must not leave an empty recording directory behind.
+      if (created != null) await _cleanUp(File(created));
       throw MicrophoneUnavailable('$error');
     }
   }
@@ -104,23 +108,34 @@ class RecordMicrophoneInput implements MicrophoneInput {
   }
 
   Future<void> _cleanUp(File file) async {
+    // Two independent attempts: a missing/held file must never keep the
+    // recording's temp directory on disk (it holds the senior's voice).
     try {
-      await file.delete();
+      if (await file.exists()) await file.delete();
+    } catch (error) {
+      debugPrint('Microphone cleanup failed: $error');
+    }
+    try {
       final directory = file.parent;
       if (await directory.exists()) await directory.delete(recursive: true);
     } catch (error) {
-      debugPrint('Microphone cleanup failed: $error');
+      debugPrint('Microphone directory cleanup failed: $error');
     }
   }
 
   @override
   Future<void> cancel() async {
+    final path = _path;
     _path = null;
     try {
       await _recorder.cancel();
     } catch (error) {
       debugPrint('Microphone cancel failed: $error');
     }
+    // An abandoned recording must not leave its WAV in %TEMP%: the app promises
+    // that captured audio is never kept, and Cancel is a normal way to end a
+    // turn (the senior changes their mind). Delete whatever was on disk.
+    if (path != null) await _cleanUp(File(path));
   }
 
   @override
