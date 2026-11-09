@@ -149,16 +149,22 @@ class ApiClient {
     return uri.replace(queryParameters: query);
   }
 
-  Future<Object?> _send(
+  /// One request with the shared headers, timeout mapping and late-response
+  /// guard, returned **as bytes**.
+  ///
+  /// JSON callers go through [_send], which decodes the body; the TTS mp3 uses
+  /// this directly so its audio is never run through `utf8.decode`.
+  Future<TransportResponse> _request(
     String method,
     String path, {
     Object? body,
     Map<String, String>? query,
     bool guardNonce = true,
+    String accept = 'application/json',
   }) async {
     final ticket = guardNonce ? nonce.value : -1;
     final headers = <String, String>{
-      'Accept': 'application/json',
+      'Accept': accept,
       if (body != null) 'Content-Type': 'application/json; charset=utf-8',
       if (token != null) 'Authorization': 'Bearer $token',
     };
@@ -202,6 +208,23 @@ class ApiClient {
     if (guardNonce && !nonce.isCurrent(ticket)) {
       throw const ApiCancelled();
     }
+    return response;
+  }
+
+  Future<Object?> _send(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    bool guardNonce = true,
+  }) async {
+    final response = await _request(
+      method,
+      path,
+      body: body,
+      query: query,
+      guardNonce: guardNonce,
+    );
 
     final status = response.statusCode;
     final text = response.body;
@@ -299,6 +322,39 @@ class ApiClient {
           : <String, Object?>{'audio_b64': audioB64, 'audio_mime': ?audioMime},
     );
     return ProviderTestResult.fromJson(asMap(payload));
+  }
+
+  /// `POST /tts`: the backend's neural voice, as raw `audio/mpeg` bytes.
+  ///
+  /// The bytes are returned untouched — an mp3 must never be decoded as UTF-8
+  /// (unlike every JSON method here). [voice] null lets the server pick its
+  /// default voice; [rate] uses the edge-tts format that the server forwards
+  /// (`'-12%'`, `'+0%'`), and null keeps the server's own default pace.
+  ///
+  /// A 200 with an empty body is reported as an error rather than "no audio",
+  /// so the caller falls back to the device voice instead of going silent.
+  Future<Uint8List> ttsSpeech({
+    required String text,
+    String? voice,
+    String? rate,
+  }) async {
+    final response = await _request(
+      'POST',
+      '/tts',
+      body: <String, Object?>{'text': text, 'voice': voice, 'rate': rate},
+      accept: 'audio/mpeg',
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.bodyBytes.isEmpty) {
+        throw const ApiException(
+          code: 'empty_audio',
+          message: 'The voice service returned no audio.',
+          recovery: <String>['retry', 'type_instead'],
+        );
+      }
+      return response.bodyBytes;
+    }
+    throw _errorFrom(response.statusCode, response.body);
   }
 
   // -- invitations and family links ---------------------------------------

@@ -58,6 +58,36 @@ function Invoke-Api {
     return $text | ConvertFrom-Json
 }
 
+function Invoke-ApiBytes {
+    # Binary sibling of Invoke-Api: /api/v1/tts answers raw audio, so the smoke
+    # must read the response stream as bytes instead of decoding JSON.
+    param([string]$Url, [string]$Token = '', $Body = $null)
+    $request = [System.Net.WebRequest]::Create($Url)
+    $request.Method = 'POST'
+    $request.Timeout = 30000
+    if ($Token) { $request.Headers.Add('Authorization', "Bearer $Token") }
+    $payload = $Body | ConvertTo-Json -Depth 5 -Compress
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+    $request.ContentType = 'application/json; charset=utf-8'
+    $request.ContentLength = $bytes.Length
+    $requestStream = $request.GetRequestStream()
+    try { $requestStream.Write($bytes, 0, $bytes.Length) } finally { $requestStream.Close() }
+    try {
+        $response = $request.GetResponse()
+    } catch [System.Net.WebException] {
+        $detail = ''
+        if ($_.Exception.Response) {
+            $errorReader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream(), [System.Text.Encoding]::UTF8)
+            try { $detail = $errorReader.ReadToEnd() } finally { $errorReader.Close() }
+        }
+        throw "HTTP POST $Url failed: $($_.Exception.Message) $detail"
+    }
+    $contentType = $response.ContentType
+    $memory = New-Object System.IO.MemoryStream
+    try { $response.GetResponseStream().CopyTo($memory) } finally { $response.Close() }
+    return [pscustomobject]@{ ContentType = $contentType; Bytes = $memory.ToArray(); Length = $memory.Length }
+}
+
 function Stop-SmokeProcess {
     param($Process, [string]$ExecutablePath)
     if ($Process) {
@@ -155,6 +185,24 @@ try {
     $caregiverDigests = Invoke-Api -Method GET -Url "$base/digests" -Token $caregiverLogin.access_token
     if ($null -eq $caregiverDigests.items) { throw 'caregiver /api/v1/digests did not return an items array' }
 
+    # Real neural speech from the packaged exe: the app asks this endpoint for every
+    # sentence it says, so a frozen-exe TTS failure must surface here, not on stage.
+    # Only `text` is sent on purpose: the app itself sends no voice/rate, so this is
+    # exactly the demo path (server default voice, slowed for older ears).
+    $ttsStarted = Get-Date
+    $tts = Invoke-ApiBytes -Url "$base/tts" -Token $seniorLogin.access_token -Body @{
+        text = 'Anchor smoke test. One, two, three.'
+    }
+    $ttsSeconds = [math]::Round(((Get-Date) - $ttsStarted).TotalSeconds, 2)
+    if ($tts.ContentType -notlike 'audio/mpeg*') { throw "tts content type was '$($tts.ContentType)'" }
+    if ($tts.Length -lt 3000) { throw "tts audio is only $($tts.Length) bytes" }
+    $isMp3 = ($tts.Bytes[0] -eq 0x49 -and $tts.Bytes[1] -eq 0x44 -and $tts.Bytes[2] -eq 0x33) -or
+             ($tts.Bytes[0] -eq 0xFF -and ($tts.Bytes[1] -band 0xE0) -eq 0xE0)
+    if (-not $isMp3) {
+        $magic = '{0:X2} {1:X2} {2:X2}' -f $tts.Bytes[0], $tts.Bytes[1], $tts.Bytes[2]
+        throw "tts payload is not MPEG audio (first bytes: $magic)"
+    }
+
     $dbFile = Join-Path $tempRoot 'data\anchor.db'
     if (-not (Test-Path $dbFile)) { throw "database was not created next to the exe: $dbFile" }
     $logFile = Join-Path $tempRoot 'data\backend.log'
@@ -188,6 +236,7 @@ try {
     Write-Host "prefs      : greeting window $($preferences.greeting_start)-$($preferences.greeting_end) (demo mode), quiet $($preferences.quiet_start)-$($preferences.quiet_end)"
     Write-Host "digests    : senior 200 items=$(@($digests.items).Count) | caregiver 200 items=$(@($caregiverDigests.items).Count)"
     Write-Host "             (no digest is pre-seeded; the worker generates weekly digests)"
+    Write-Host "tts        : $([math]::Round($tts.Length / 1KB)) KB of $($tts.ContentType) in $ttsSeconds s (real edge-tts synthesis through the frozen exe)"
     Write-Host "port clash : second copy exited 0, first backend still healthy"
     Write-Host "db file    : $dbFile"
     Write-Host "log file   : $logFile"

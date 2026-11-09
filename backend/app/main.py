@@ -26,6 +26,7 @@ from .api import (
     providers,
     relationships,
     sessions,
+    tts,
 )
 
 VERSION = "0.1.0"
@@ -47,6 +48,7 @@ ROUTERS = (
     contacts,
     notifications,
     data,
+    tts,
 )
 
 

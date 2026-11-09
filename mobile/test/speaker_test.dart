@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:anchor_app/services/backend_tts_speaker.dart';
 import 'package:anchor_app/services/speaker_factory.dart';
 import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/services/windows_sapi_speaker.dart';
@@ -58,10 +59,14 @@ void main() {
       expect(speakerTargetFor(''), SpeakerTarget.other);
     });
 
-    test('Windows gets the SAPI speaker, never flutter_tts', () {
+    test('Windows gets the backend voice with a SAPI fallback, never '
+        'flutter_tts', () {
       final speaker = createSpeakerForTarget(SpeakerTarget.windows);
-      expect(speaker, isA<WindowsSapiSpeaker>());
+      expect(speaker, isA<BackendTtsSpeaker>());
       expect(speaker, isNot(isA<TtsService>()));
+      // The device voice is still there for when the backend cannot deliver.
+      final windows = speaker as BackendTtsSpeaker;
+      expect(windows.fallback, isA<WindowsSapiSpeaker>());
     });
 
     test('mobile keeps device TTS and web stays silent', () {

@@ -69,13 +69,18 @@ Anchor MVP — Windows 自包含演示版
 接入真模型（否则回复是离线模板）
   Settings → AI 接入（模型/语音）→ 填 DeepSeek API Key（预设已填好 base URL + deepseek-chat）
   → 保存 → 测试连接。Key 只保存在本机 backend\data\anchor.db，接口返回时打码。
-  语音识别：Windows 版默认用本机 System.Speech（不要 key）；没有中文识别包时请在同一页面
-  配置 OpenAI 兼容的 ASR，或直接打字。
+  语音识别：Windows 版默认用本机 System.Speech（不要 key，但中文听写质量很差，基本只能演示）。
+  要能真用，就在同一页面配置 OpenAI 兼容的 ASR：填 base URL（如 https://api.openai.com/v1）、
+  API Key、model（如 whisper-1），保存后点“测试”，能看到识别出的文字才算接上。
+
+声音
+  * 默认走后端在线神经语音（微软 Edge 神经音色，中文自然），需要联网。
+  * 断网或合成失败时自动退回 Windows 系统语音（SAPI），能出声但很机器人。
+  * 每句话合成约 3–7 秒（越长的句子越久），说完到出声之间会有这段等待。
 
 演示提示
   * 主动问候只在 App 前台、且在问候窗口内出现；演示数据默认窗口 09:00–21:00，
     可在 Settings → 问候时间 里调整。
-  * 声音使用 Windows 系统语音（SAPI），不是目标音色。
   * 所有姓名/记录都是合成演示数据，不是真实老人数据。
   * 后端数据目录：backend\data\（删掉即可重置演示）。
   * 诊断日志：backend\data\backend.log（若存在）。

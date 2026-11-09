@@ -356,6 +356,97 @@ void main() {
     });
   });
 
+  group('tts', () {
+    test('POST /tts returns the raw mp3 bytes untouched', () async {
+      // 0xFF 0xFB is an mp3 frame header and is invalid UTF-8 on purpose: the
+      // client must return the body as bytes, never decode it as text.
+      final mp3 = Uint8List.fromList(<int>[0xFF, 0xFB, 0x90, 0x64, 0x00, 0xFF]);
+      String? sentMethod;
+      Uri? sentUrl;
+      String? sentBody;
+      String? sentAccept;
+      String? sentContentType;
+      String? sentAuth;
+      final api = stubApi((method, url, headers, body) async {
+        sentMethod = method;
+        sentUrl = url;
+        sentBody = body;
+        sentAccept = headers['Accept'];
+        sentContentType = headers['Content-Type'];
+        sentAuth = headers['Authorization'];
+        return TransportResponse(200, mp3);
+      }, token: 'tok');
+
+      final audio = await api.ttsSpeech(text: '你好', voice: null, rate: '-12%');
+
+      expect(sentMethod, 'POST');
+      expect(sentUrl.toString(), 'http://127.0.0.1:8077/api/v1/tts');
+      expect(sentAccept, 'audio/mpeg');
+      expect(sentContentType, 'application/json; charset=utf-8');
+      expect(sentAuth, 'Bearer tok', reason: 'POST /tts needs the login token');
+      expect(jsonDecode(sentBody!), <String, Object?>{
+        'text': '你好',
+        'voice': null,
+        'rate': '-12%',
+      });
+      expect(audio, mp3);
+    });
+
+    test('a 503 keeps the provider_unavailable envelope', () async {
+      final api = stubApi((method, url, headers, body) async {
+        return errorResponse(
+          'provider_unavailable',
+          'Speech provider unavailable',
+          status: 503,
+          extra: <String, Object?>{
+            'recovery': <Object?>['retry', 'type_instead'],
+          },
+        );
+      }, token: 'tok');
+
+      await expectLater(
+        api.ttsSpeech(text: '你好'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'provider_unavailable')
+              .having((e) => e.statusCode, 'status', 503)
+              .having((e) => e.recovery, 'recovery', contains('retry')),
+        ),
+      );
+    });
+
+    test('an empty 200 body is an error, not silence', () async {
+      final api = stubApi(
+        (method, url, headers, body) async =>
+            TransportResponse(200, Uint8List(0)),
+        token: 'tok',
+      );
+
+      await expectLater(
+        api.ttsSpeech(text: '你好'),
+        throwsA(
+          isA<ApiException>().having((e) => e.code, 'code', 'empty_audio'),
+        ),
+      );
+    });
+
+    test('a late audio response after Stop is discarded', () async {
+      final completer = Completer<TransportResponse>();
+      final api = stubApi(
+        (method, url, headers, body) => completer.future,
+        token: 'tok',
+      );
+
+      final pending = api.ttsSpeech(text: '不要再说');
+      api.nonce.bump();
+      completer.complete(
+        TransportResponse(200, Uint8List.fromList(<int>[0xFF, 0xFB])),
+      );
+
+      await expectLater(pending, throwsA(isA<ApiCancelled>()));
+    });
+  });
+
   group('request nonce', () {
     test('a reply that arrives after Stop is discarded', () async {
       final completer = Completer<TransportResponse>();

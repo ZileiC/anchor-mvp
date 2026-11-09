@@ -11,9 +11,12 @@ import 'state/backend_startup.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  final api = ApiClient();
   final state = AppState(
-    api: ApiClient(),
-    speaker: createSpeaker(),
+    api: api,
+    // Windows speech asks this same client for the backend's neural mp3, so it
+    // reuses the base URL and the bearer token that sign-in stores on it.
+    speaker: createSpeaker(api: api),
     microphone: RecordMicrophoneInput(),
     dialer: const SystemDialer(),
   );

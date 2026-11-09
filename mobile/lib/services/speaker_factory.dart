@@ -1,3 +1,4 @@
+import 'api_client.dart';
 import 'speaker.dart';
 // `dart:io` only exists on native platforms: the stub keeps the web build
 // compiling and makes speech a no-op there.
@@ -9,11 +10,17 @@ export 'speaker.dart';
 
 /// The speaker this platform should use.
 ///
-/// Windows → `WindowsSapiSpeaker` (System.Speech via PowerShell), Android/iOS →
+/// Windows → `BackendTtsSpeaker` (the backend's neural voice via
+/// `MediaPlayer`, with the SAPI device voice as fallback), Android/iOS →
 /// `TtsService` (flutter_tts), web → silent.
-Speaker createSpeaker() => impl.createPlatformSpeaker();
+///
+/// Pass the app's [api] on Windows: that same client carries the base URL and
+/// the bearer token set at login, and the speaker re-reads `api.token` on every
+/// request. Without it the factory still builds a working speaker around a
+/// default client (tests and callers that have none).
+Speaker createSpeaker({ApiClient? api}) => impl.createPlatformSpeaker(api: api);
 
 /// Same choice, made explicitly (used by tests and by callers that already know
 /// the platform).
-Speaker createSpeakerForTarget(SpeakerTarget target) =>
-    impl.createSpeakerForTarget(target);
+Speaker createSpeakerForTarget(SpeakerTarget target, {ApiClient? api}) =>
+    impl.createSpeakerForTarget(target, api: api);

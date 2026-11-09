@@ -36,6 +36,9 @@ try {
         --add-data "migrations;migrations" `
         --add-data "../content/activities.json;content" `
         --collect-submodules uvicorn `
+        --collect-submodules edge_tts `
+        --hidden-import aiohttp `
+        --collect-data certifi `
         --paths . `
         --distpath $distDir --workpath $workDir `
         app/entrypoint.py

@@ -23,11 +23,14 @@ Those are engineering controls, not evidence about older adults.
 
 ## 2. Product/technology limitations
 
-1. **Speech adapters: real but not benchmarked.** On Windows the packaged demo uses the local
-   System.Speech recognizer (`windows-sapi`) — genuine recognition, no key, but it can cut at pauses
-   and has no dialect tuning; HTTP ASR is implementable via `PUT /providers` but no vendor key was
-   tested. WER and dialect support **cannot be claimed** from this build; text fallback is still not
-   the speech target.
+1. **Speech adapters: real but not benchmarked.** The Windows default is the local System.Speech
+   recognizer (`windows-sapi`) — genuine recognition, no key, but it cuts at pauses, has no dialect
+   tuning and in practice often returns nothing for real Mandarin, so it must not be presented as
+   working voice input. Entering `asr_base_url` + `asr_api_key` + `asr_model` under
+   `Settings → AI 接入` switches to any OpenAI-compatible `/audio/transcriptions` endpoint
+   (`HttpASR`); the wiring and its 503/401 paths are unit-tested, but **no vendor key has been run
+   end-to-end on this machine yet** — until one is, voice input stays unverified. WER and dialect
+   support **cannot be claimed** from this build; text fallback is still not the speech target.
 2. **The LLM is a real model only after it is configured.** Default `rule` replies are deterministic
    templates; the UI labels them “离线模板回复”. `Settings → AI 接入` connects a DeepSeek/OpenAI-
    compatible endpoint (live-verified on this machine: “好呀，我陪你聊聊。你阳台上那些花，最近开得
@@ -44,11 +47,18 @@ Those are engineering controls, not evidence about older adults.
    eligibility and offers the greeting card on Home inside the approved window; there is no
    local-notification plugin, so an invitation while the app is suspended/closed is not delivered.
    This is the guide §3.3 foreground allowance, not the background notification path.
-7. **Windows speech is out-of-process.** `flutter_tts` crashed the Windows runner inside
-   `flutter_tts_plugin.dll` (access violation 0xc0000005) on the first `speak()`. Windows now speaks
-   through a short-lived PowerShell `System.Speech` child process (`WindowsSapiSpeaker`), which is
-   verified on the built exe; Stop kills the child. The voice is therefore the OS voice (not the
-   product's target voice), and Android's flutter_tts path is untested on a device.
+7. **Windows speech is out-of-process and network-bound.** `flutter_tts` crashed the Windows runner
+   inside `flutter_tts_plugin.dll` (access violation 0xc0000005) on the first `speak()`, so Windows
+   never calls it. Each utterance is now `POST /api/v1/tts` to the local backend, which synthesises
+   with `edge-tts` (Microsoft Edge neural voices: default `zh-CN-XiaoxiaoNeural`, rate −12% for older
+   ears) and returns MP3; a short-lived PowerShell `MediaPlayer` child plays the file, and Stop kills
+   it. Verified on the installed exe on 2026-11-09: a 12-character Chinese reply produced a 15,840-byte
+   MP3 that played for 4.27 s and was then deleted. Two costs it does not hide: synthesis needs
+   internet and takes ~3–7 s per sentence (measured through the frozen exe: 30 chars → 6.6 s, 34
+   chars → 6.9–7.1 s), and the spoken text leaves the machine to Microsoft's Edge service — this is a
+   demo-grade voice, not a contracted TTS vendor. On any failure the app falls back to the Windows
+   SAPI voice (`System.Speech`): audible, robotic, and `lastAttemptFailed` then reads `true`. Android's
+   flutter_tts path is still untested on a device.
 8. **Proactive frequency is one opt-in invitation per day**, an explicit MVP resolution of the
    conflicting source targets (two/day minimum vs one/day cap). It does not claim the four-to-six
    initiation target; raising the cap requires user testing and the older adult's approval.
