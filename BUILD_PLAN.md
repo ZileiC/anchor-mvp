@@ -59,7 +59,7 @@ must be able to open the workspace, read this file, and continue correctly.
 - [x] Command routing (stop/repeat/play/call) with one clarification, confirmation-required dial action
 - [x] Session open/turns/stop, captions, cancellation token, no audio persistence, turn purge
 - [x] Memory propose/approve/list/delete/retrieval; 7-day recall test; prompt excludes deleted facts
-- [x] Activity content pack (`content/activities.json`, 3 types, ≥18 items), rotation persisted, activity sessions + observations
+- [x] Activity content pack (`content/activities.json`, 3 types, 16 adult-level items with explanations and spoken feedback), rotation persisted, activity sessions + observations
 - [x] Tests: `s2_`, `s3_`, `s4_`, `s6_`, `s7_`, `failure_stop_late_output`, `failure_delete_memory`
 - **Evidence:** backend suite green including cancellation and 7-day recall.
 

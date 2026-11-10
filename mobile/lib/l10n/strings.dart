@@ -138,6 +138,12 @@ class L {
   String get activityChoose => t('选一个', 'Choose one');
   String get activityThink => t('想一想，慢慢来', 'Take your time');
   String get activityThanks => t('谢谢你告诉我。', 'Thank you for telling me.');
+  // Immediate feedback: what the senior sees and hears after one tap.
+  String get activityCorrect => t('对了', 'That is right');
+  String get activityWrong => t('这个不太对', 'That is not quite it');
+  String get activityListen => t('听我讲讲', 'Let me tell you');
+  String activityAnswerWas(String option) =>
+      t('对的是：$option', 'The right one is: $option');
   String get activityEmpty =>
       t('活动暂时打不开。', 'Activities are unavailable right now.');
   String get activityCached =>
@@ -150,10 +156,6 @@ class L {
     '还没有下载过活动，等能上网时再来。',
     'No saved activities yet. Come back when the connection is available.',
   );
-  String activityMinutesLeft(int minutes) =>
-      t('还有 $minutes 分钟', '$minutes min left');
-  String activitySecondsLeft(int seconds) =>
-      t('还有 $seconds 秒', '$seconds s left');
 
   // -- call -----------------------------------------------------------------
   String get callTitle => t('打电话', 'Call');

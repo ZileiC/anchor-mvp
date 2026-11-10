@@ -418,7 +418,7 @@ contains the fact (`memory_recall_7d`).
 ### 6.5 Activities (S3)
 | Method | Path | Auth | Contract |
 |---|---|---|---|
-| GET | `/activities` | senior | `{items:[{id,type,title,prompt,options?,answer?,minutes}], rotation:[ids]}`; `type` ∈ trivia/story/memory; filtered by interests when possible |
+| GET | `/activities` | senior | `{items:[{id,type,title,prompt,options?,answer?,explanation?,wrong_hint?,replies?,story?,minutes}], rotation:[ids]}`; `type` ∈ trivia/story/memory; `answer` is an **int index** into `options` and exists only for trivia/story; `replies` is one line per option for the no-right-answer (memory) cards; `story` is read aloud before the question; filtered by interests when possible |
 | POST | `/activity-sessions` | senior | `{activity_id, completed, duration_seconds}` → records observation topic `activities` when `record_observations` allowed; deterministic next-rotation state persisted (`activity_rotation` table? see DECISIONS — store in preferences JSON `rotation_state` — no: separate `rotation_state` table is allowed, add it) |
 
 Deterministic rotation: never repeat an item until all items of that type (or interest group) have

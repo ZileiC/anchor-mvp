@@ -60,6 +60,16 @@ class ActivityEngine:
         return [item for item in self.all_items() if item["type"] == activity_type]
 
     def localise(self, item: dict[str, Any], locale: str) -> dict[str, Any]:
+        """Shape one item for the app, in the senior's language.
+
+        Every user-visible field is optional in the pack, so a field is copied
+        only when the pack actually has it: ``explanation``/``wrong_hint`` for
+        trivia and story, ``replies`` for memory, ``story`` for story. A
+        ``<field>_en`` translation wins for ``locale == "en"`` and falls back to
+        the Chinese field. ``answer`` stays an integer index into the
+        (identically ordered) ``options`` list. Internal fields such as ``tags``
+        never leave the engine.
+        """
         suffix = "_en" if locale == "en" else ""
         payload = {
             "id": item["id"],
@@ -68,8 +78,14 @@ class ActivityEngine:
             "prompt": item.get("prompt" + suffix) or item["prompt"],
             "minutes": item.get("minutes", 3),
         }
-        if item.get("options"):
-            payload["options"] = item.get("options" + suffix) or item["options"]
+        for field in ("options", "replies"):
+            values = item.get(field)
+            if values:
+                payload[field] = item.get(field + suffix) or values
+        for field in ("explanation", "wrong_hint", "story"):
+            value = item.get(field)
+            if value:
+                payload[field] = item.get(field + suffix) or value
         if "answer" in item:
             payload["answer"] = item["answer"]
         return payload

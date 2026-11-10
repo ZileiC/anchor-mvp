@@ -491,16 +491,28 @@ class FakeApi extends ApiClient {
   }
 
   // -- activities ----------------------------------------------------------
+  /// Every finished session, in order, so tests can prove the silent POST
+  /// (id, completed, measured seconds) still happens.
+  final List<({String id, bool completed, int seconds})> activitySessions =
+      <({String id, bool completed, int seconds})>[];
+
   @override
   Future<ActivitySessionResult> recordActivitySession({
     required String activityId,
     required bool completed,
     required int durationSeconds,
-  }) async => ActivitySessionResult(
-    recorded: true,
-    activityId: activityId,
-    observationRecorded: false,
-  );
+  }) async {
+    activitySessions.add((
+      id: activityId,
+      completed: completed,
+      seconds: durationSeconds,
+    ));
+    return ActivitySessionResult(
+      recorded: true,
+      activityId: activityId,
+      observationRecorded: false,
+    );
+  }
 
   // -- digest and contacts -------------------------------------------------
   @override
@@ -656,6 +668,10 @@ CheckinEligibility blockedNow(
 );
 
 /// One activity of each type, in a fixed rotation.
+///
+/// Covers the whole content contract: a graded quiz with an explanation and a
+/// gentle hint, a story that is read before its question, and a memory card
+/// with one warm reply per option and no right answer at all.
 ActivityFeed threeActivityFeed() => const ActivityFeed(
   items: <ActivityItem>[
     ActivityItem(
@@ -665,14 +681,20 @@ ActivityFeed threeActivityFeed() => const ActivityFeed(
       prompt: '哪一样是早餐？',
       minutes: 3,
       options: <String>['粥', '筷子', '雨伞'],
-      answer: '粥',
+      answerIndex: 0,
+      explanation: '粥是早餐。筷子用来吃饭，雨伞是下雨用的。',
+      wrongHint: '再想想早上常吃的东西。',
     ),
     ActivityItem(
       id: 'story-1',
       type: 'story',
       title: '一个小故事',
-      prompt: '讲讲你小时候的院子。',
+      prompt: '小时候的院子里，你最喜欢做什么？',
       minutes: 3,
+      options: <String>['在树下乘凉', '在门口等信'],
+      answerIndex: 0,
+      explanation: '在树下乘凉，是很安静的夏天。',
+      story: '小时候的院子有一棵枣树。夏天你常在树下坐着。',
     ),
     ActivityItem(
       id: 'memory-1',
@@ -680,6 +702,8 @@ ActivityFeed threeActivityFeed() => const ActivityFeed(
       title: '记一记',
       prompt: '记住这三样：茶杯、钥匙、毛巾。',
       minutes: 3,
+      options: <String>['茶杯', '钥匙', '毛巾'],
+      replies: <String>['茶杯在桌上。', '钥匙在门口的小盘子里。', '毛巾在柜子里。'],
     ),
   ],
   rotation: <String>['trivia-1', 'story-1', 'memory-1'],

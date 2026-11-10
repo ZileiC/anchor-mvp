@@ -694,6 +694,26 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Speaks one short sentence for the Play screen: the story of a card, the
+  /// teaching sentence after a tap, or a memory reply.
+  ///
+  /// Why this exists: Play already shows the exact same sentence on screen, so
+  /// the voice is decoration and must never become a failure the senior has to
+  /// deal with. [_speak] is the one path that knows the locale, the slow-pace
+  /// preference and the remembered text, so this is a thin wrapper around it —
+  /// never a second TTS route. Any speaker failure is swallowed here (and
+  /// [speechActive] is put back, so the UI can never be stuck "speaking").
+  Future<void> speakFeedback(String text) async {
+    if (text.trim().isEmpty) return;
+    try {
+      await _speak(text);
+    } catch (error) {
+      speechActive = false;
+      notifyListeners();
+      debugPrint('Activity feedback speech failed: $error');
+    }
+  }
+
   Future<TurnResult?> sendText(String text) async {
     final value = text.trim();
     if (value.isEmpty) return null;

@@ -14,7 +14,7 @@ what is **not** measured is `docs/limitations.md`.
 |---|---|
 | FastAPI backend (auth, consent, conversation, activities, memories, digests, worker) | `backend/` |
 | Flutter app — older-adult mode + caregiver mode | `mobile/` |
-| Curated activity pack (trivia / stories / memory games) | `content/activities.json` |
+| Curated activity pack (trivia / stories / memory prompts, adult-level, with answers, explanations and spoken feedback) | `content/activities.json` |
 | Setup, acceptance checklist, measurement protocol, limitations | `docs/` |
 | One-command scripts (bootstrap, run, build, verify, seed, WER) | `scripts/` |
 | Frozen contract + decisions log | `SPEC.md`, `DECISIONS.md` |
