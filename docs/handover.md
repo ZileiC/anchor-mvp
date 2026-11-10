@@ -1,9 +1,24 @@
 # Anchor 交接说明：电脑端给老人、手机端给家人
 
-> 架构调整日期：2026-11-10
-> 本文覆盖：Windows / Android 两端形态拆分（语音只在电脑，设置只在手机）+ 手机端 setup 首页
-> 代码状态：`mobile/lib`、`mobile/test` 内已完成；`flutter analyze` 无问题，`flutter test` **276 个测试全绿**（原有 263 + 新增 13）。**未提交、未打包、未在真机上验证。**
+> 架构调整日期：2026-11-10（同日完成老人端整体 UI 重做）
+> 本文覆盖：Windows / Android 两端形态拆分（语音只在电脑，设置只在手机）+ 手机端 setup 首页 + 老人端新界面
+> 代码状态：`mobile/lib`、`mobile/test` 内已完成并已提交推送；`flutter analyze` 无问题，`flutter test` **286 个测试全绿**，后端 `pytest` **399 全绿**。Windows 包已在本机装机验证；**Android APK 只验证了「能构建 + 清单权限正确」，没有真机装过。**
 > 交接对象：接下来做「周报 / 家人提醒」的同学（重点看第 5 节）。
+
+---
+
+## 0. 2026-11-10 当天改了什么（按提交顺序）
+
+| 提交 | 内容 |
+|---|---|
+| `62d65f8` | 游戏里可以「说出答案」（录音 → `/transcribe` → 匹配选项 → 与点击同样判分）；ASR 默认模型换成 `Qwen/Qwen3-ASR-1.7B`（同一音频实测 0.52–0.65 s；原 SenseVoice 2.9 s，且出现过 15–43 s 尖峰） |
+| `7aa5f44` | 语音输出不再静默失败：长连接播放器回退为「一句话一个短命子进程」，校验播放器退出码（非 0 → 自动用系统语音兜底并记日志），客户端超时 15 s → 90 s，启动清理残留 mp3 |
+| `57cbd0d` | 活动进聊天流（第 3 句后自然出现，答完接着聊）；答对 +1 朵小花（只加不减、`GET /rewards`）；停止立即生效；后端冻结版监听 `0.0.0.0:8077`；Android 神经语音（just_audio） |
+| `31f5bcc` | 产品形态拆分：`PlatformPolicy` 唯一平台判断；Windows 无任何设置入口；手机登录即 setup 首页；`AppState` 七个语音入口在手机端直接返回 |
+| `8808ce9` | 老人端首页去掉「玩一玩」入口（活动已在对话里）；停止条只在「有东西在跑」时出现，按停止后立即消失 |
+| 本文提交 | 交接文档更新（设计说明、限制、文件清单） |
+
+老人端界面这一天的重做见 `docs/design/senior-ui.md`：登录页（两张大牌：老人 / 家人）、首页（一个大圆盘 + 打电话）、聊天页（紧凑字幕 + 固定底部麦克风，停止条只在该出现时出现）。
 
 ---
 
@@ -14,11 +29,13 @@
 | | 老人用的电脑（Windows） | 家人用的手机（Android） |
 |---|---|---|
 | 定位 | 老人身边的「终端」 | 家人的「配置与联络端」 |
-| 首页 | 聊一聊 / 玩一玩 / 打电话 + 一直存在的「停止」 | 设置与联络（AI 接入、家人与联系、消息与操作记录） |
-| 能做的事 | 语音聊天、小活动（含小花）、给家人打电话、随时停止 | 配置对话模型与语音识别、邀请/接受家人、看周报、建议问候时间；老人账号还能看自己的设置 |
-| 明确没有 | **任何设置界面**：没有设置入口、没有 AI 接入页、没有填 Key 的地方 | **任何语音交互**：没有麦克风按钮、不朗读回复、没有语音答题、也没有「停止」 |
+| 首页 | **一个大圆圈「聊一聊」+ 一个「打电话」**（2026-11-10 重做：不再有三等分入口，也没有「玩一玩」入口） | 设置与联络（AI 接入、家人与联系、消息与操作记录） |
+| 能做的事 | 语音聊天、聊天里随机出现的小活动（答对攒小花）、给家人打电话、聊天中可停止 | 配置对话模型与语音识别、邀请/接受家人、看周报、建议问候时间；老人账号还能看自己的设置 |
+| 明确没有 | **任何设置界面**；也**没有「玩一玩」独立入口**（活动只在对话里出现） | **任何语音交互**：没有麦克风按钮、不朗读回复、没有语音答题、也没有「停止」 |
 
-两端的观感都没变：正文 26px、可点区域 ≥56px、字号放大到 1.6 倍不溢出。
+**停止按钮的唯一规则（2026-11-10 定稿）**：只在「有东西在跑」的地方出现——也就是聊天页。首页没有停止条；聊天页按下停止后，停止条**立即消失**，屏幕上只剩「已经停下来了」面板与「继续聊天」。这偏离了 SPEC §9「每个老人页面都有 Stop」的字面要求，是产品明确选择：老人抱怨「按了停止它还赖在那里」。
+
+老人端观感在 2026-11-10 整体重做，设计说明与 token 见 `docs/design/senior-ui.md`（暖石纸底、玉青主轴、单一大圆盘、紧凑字幕、发丝线分隔）。正文仍是 26px、可点区域 ≥56px，1.3 倍字号在手机上不溢出（有测试钉住）。
 
 代码层面的三条硬规则（都已有测试盯着）：
 
@@ -210,39 +227,61 @@ curl.exe -H "Authorization: Bearer <senior-token>" http://127.0.0.1:8077/api/v1/
 5. **APK 里仍声明 `RECORD_AUDIO`**：这个权限是 `record` 插件自己的 manifest 带进来的。手机端代码已经全部不走录音（第 3 节），但「安装包里有这个权限」在隐私说明里要主动讲；要彻底去掉得把录音插件从 Android 构建里拆开（本次没做）。
 6. **两台设备共用同一个 device id**：`AnchorConfig.deviceId` 目前写死 `anchor-win-demo-1`，手机和电脑报给后端的是同一个值，「一台设备接收问候」的规则分不出这两台。要做真双端演示，应改成编译期参数（`--dart-define=ANCHOR_DEVICE_ID`）并给两台机器不同的值。
 7. **老人电脑上撤销「语音在云端处理」后，电脑端改不回来**：电脑没有设置页，Talk 的提示已改成「在家人的手机上打开」，但真要恢复必须去手机（老人账号 → 设置与设备）。这是个产品决策点：建议后续让「语音同意」也能在手机端由老人自己确认。
-8. **文案不一致的两处（本次没改，约定不动 `scripts/`）**：
-   - `scripts/package_windows.ps1` 生成的 `README-DEMO.txt` 还写着「Settings → AI 接入」在电脑上配模型/语音——已经不存在了。
-   - `mobile/README-android.md` 的「Android 语音路径」整节描述的是拆分前的 Android 语音实现。
+8. **文案一致性**：`scripts/package_windows.ps1` 生成的 `README-DEMO.txt` 已在 2026-11-10 更新为「电脑上没有设置界面，配置在家人手机上」；`mobile/README-android.md` 的「Android 语音路径」整节写的是 11-10 之前的设计（手机已不做语音），读到时以本文为准。
 9. **没有真机验证**：本机没有 Android 设备/模拟器，手机端只经过 widget 测试和静态分析，没有在真机上点过一遍（连不上后端、防火墙、字体渲染都未验证）。
-10. `dart format --set-exit-if-changed` 对 `mobile/lib/services/android_tts_speaker.dart`、`mobile/test/android_tts_speaker_test.dart` 两个**本次未改动**的文件本来就报格式差异（历史遗留），所以 `scripts/verify.ps1` 的格式步骤会因此报红——与本次改动无关。
+10. **「玩一玩」独立页面仍在代码里，但已无入口**：`activity_screen.dart` 保留（判分规则与测试都在里面，Play 的判分逻辑和聊天内卡片共用 `state/activity_grading.dart`），首页不再有它的入口；如果后续确认不需要，可以整页删除并迁移相关测试。
+11. **家人账号不能改 AI 配置**：后端 `/providers` 是 `require_senior`，家人账号在手机上点「AI 接入」会看到「由老人管理」。演示时用老人账号（1）登录手机配置即可；要放开需要改后端授权（产品决策）。
+12. **ASR 供应商延迟会抖**：SiliconFlow 的 Qwen3-ASR 平时 0.5–0.9 s，但同一网络下曾出现 15–43 s 的尖峰（同一音频不同时刻）。适配器超时 20 s，超时就 503。演示前建议现场先用手机/电脑跑一次识别，确认当时的速度。
+13. **TTS 走微软 Edge 的公共接口**：无 SLA，限流或改协议时会退回 Windows 系统语音（机械音，但有声）。每次合成 3–7 s，说完到出声之间有这段等待。
+14. **格式检查**：`dart format --set-exit-if-changed` 在 `mobile/lib/services/android_tts_speaker.dart`、`mobile/test/android_tts_speaker_test.dart` 两个历史文件上仍报格式差异，所以 `scripts/verify.ps1` 的格式步骤会因此报红——与本轮改动无关，`flutter analyze` 与全部测试是绿的。
 
 ---
 
 ## 7. 本次改动的文件清单
 
-**新增**
+**设计文档**
+
+| 文件 | 内容 |
+|---|---|
+| `docs/design/senior-ui.md` | 老人端重设计的 token、版面、动效与边界说明 |
+| `docs/handover.md` | 本文 |
+
+**新增（平台拆分 + 活动进聊天 + 奖励 + Android 语音）**
 
 | 文件 | 内容 |
 |---|---|
 | `mobile/lib/platform_policy.dart` | 平台策略（唯一判断点） |
 | `mobile/lib/screens/setup/setup_home_screen.dart` | 手机端 setup 首页 |
 | `mobile/lib/widgets/closed_on_device.dart` | 不可用页面 → 退回首页 |
-| `mobile/test/platform_policy_test.dart` | 策略单元测试（5 个） |
-| `mobile/test/platform_split_test.dart` | 两端拆分行为测试（8 个） |
+| `mobile/lib/state/inline_activity.dart` | 聊天内活动卡的状态 |
+| `mobile/lib/state/activity_grading.dart` | 判分规则（Play 与聊天内共用） |
+| `mobile/lib/widgets/inline_activity_card.dart` | 聊天内活动卡（含小花展示） |
+| `mobile/lib/services/android_tts_speaker.dart` | Android 神经语音（just_audio，手机端已不启用） |
+| `mobile/lib/services/answer_matcher.dart` | 语音答案 → 选项匹配（不猜） |
+| `backend/migrations/003_inline_activities.sql` | 会话内活动发放记录 |
+| `backend/migrations/004_activity_rewards.sql` | 小花计数 |
+| `backend/app/api/asr.py` | `POST /api/v1/transcribe`（只转写，不建会话/不调模型） |
+| `backend/tests/test_inline_activities.py`、`test_activity_rewards.py`、`test_asr_api.py` | 对应测试 |
+| `mobile/test/*`（新增 7 个测试文件） | 平台拆分、聊天内活动、语音答题、奖励、Talk 版面等 |
 
-**修改**
+**修改（主要项）**
 
 | 文件 | 改了什么 |
 |---|---|
-| `mobile/lib/state/app_state.dart` | `policy` 字段 + 语音开关（7 个入口）+ 手机端不启动主动问候 |
+| `mobile/lib/theme.dart` | 新调色板与圆角/尺寸 token；保留旧 token 名以免牵连其他页面 |
+| `mobile/lib/screens/login_screen.dart` | 两张大牌的账号选择页 |
+| `mobile/lib/screens/senior/home_screen.dart` | 大圆盘首页；去掉设置入口与「玩一玩」；不再渲染停止条 |
+| `mobile/lib/screens/senior/talk_screen.dart` | 紧凑字幕流 + 固定底部麦克风；停止后隐藏停止条 |
+| `mobile/lib/widgets/stop_bar.dart` | 常驻条改为紧凑贴条；抗大字号裁切 |
+| `mobile/lib/widgets/anchor_scaffold.dart` | 新增 `aboveStop` 与 `showStop` |
+| `mobile/lib/state/app_state.dart` | 平台策略、语音闸门、聊天内活动、小花、停止立即生效 |
 | `mobile/lib/app.dart` | `RootScreen` 按平台分流 |
-| `mobile/lib/screens/senior/home_screen.dart` | 电脑端不渲染设置入口 |
-| `mobile/lib/screens/senior/settings_screen.dart` | 非手机端 → 回首页 |
-| `mobile/lib/screens/senior/ai_providers_screen.dart` | 非手机端 → 回首页；ASR 测试在手机端不录音（改叫「测试语音识别配置」，后端如实回 `no_sample`） |
-| `mobile/lib/screens/senior/talk_screen.dart` | 电脑端不推设置路由，同意/识别提示改指家人手机 |
-| `mobile/lib/widgets/anchor_scaffold.dart` | 手机端不渲染 StopBar |
-| `mobile/lib/l10n/strings.dart` | 新增手机端文案（中英） |
-| `mobile/test/support/fakes.dart` | `buildTestState(..., policy:)`，默认 Windows 终端 |
-| `mobile/test/home_widget_test.dart`、`ai_provider_test.dart`、`backend_startup_test.dart` | 按平台声明状态（设置类用例改走手机端 setup 首页；语音类用例显式声明电脑端） |
-
-**没有改动**：`backend/`、`content/`、`scripts/`、以及任何语音服务实现（`backend_tts_speaker.dart`、`android_tts_speaker.dart`、`windows_sapi_speaker.dart`、`speech_input.dart` 全部原样保留，只在 `AppState` 里加了闸门）。
+| `mobile/lib/services/backend_tts_speaker.dart` | 回退为单句短命播放进程 + 退出码校验 + 残留清理 |
+| `mobile/lib/services/api_client.dart` | `/transcribe`、`/rewards`、活动会话带 `correct` |
+| `backend/app/activities/engine.py` | 活动发放、判分后的花朵计数 |
+| `backend/app/api/activities.py` | `correct` 字段（StrictBool）、`GET /rewards` |
+| `backend/app/conversation/orchestrator.py` | 回合响应可带 `activity` |
+| `backend/app/entrypoint.py` | 冻结版监听 `0.0.0.0`，开发版仍 `127.0.0.1` |
+| `scripts/package_windows.ps1` | 打包 README 改为「配置在家人手机上」 |
+| `content/activities.json` | 16 条成人向内容（5 题 / 4 故事 / 7 回忆） |
+| 测试：`home_widget_test`、`activity_screen_test`、`activity_voice_test`、`platform_split_test`、`backend_startup_test`、`fakes.dart` | 按新首页与新停止规则更新 |
