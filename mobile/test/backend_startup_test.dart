@@ -155,16 +155,19 @@ void main() {
     await settle(tester);
     expect(find.byType(SeniorHomeScreen), findsOneWidget);
 
-    // The card follows the user into Home, but Stop still works.
+    // The card follows the user into Home. The appliance has no settings UI at
+    // all (architecture change 2026-11-10) and Home has no Stop pill either:
+    // Stop lives where something is running, i.e. inside the conversation.
     expect(find.text(L.zh.backendUnavailableTitle), findsOneWidget);
-    expect(find.byKey(const Key('stop-control')), findsOneWidget);
-    // ...and the appliance has no settings UI at all (architecture change
-    // 2026-11-10), so there is no Settings entry to lose in the first place.
     expect(find.byKey(const Key('primary-settings')), findsNothing);
+    expect(find.byKey(const Key('stop-control')), findsNothing);
 
+    await tester.tap(find.byKey(const Key('primary-talk')));
+    await settle(tester);
     await tester.tap(find.byKey(const Key('stop-control')));
     await settle(tester);
-    expect(find.text(L.zh.stoppedTitle), findsOneWidget);
+    // The panel and the snackbar both say it; assert the panel itself.
+    expect(find.byKey(const Key('talk-stopped-panel')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await disposeApp(tester);

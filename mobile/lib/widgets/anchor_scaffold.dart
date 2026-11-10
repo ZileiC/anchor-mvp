@@ -20,6 +20,8 @@ class AnchorScaffold extends StatelessWidget {
     this.onStop,
     this.stopLabel,
     this.scrollable = true,
+    this.aboveStop,
+    this.showStop = true,
   });
 
   final AppState state;
@@ -33,9 +35,28 @@ class AnchorScaffold extends StatelessWidget {
   final String? stopLabel;
   final bool scrollable;
 
+  /// False hides the persistent Stop bar. Used by screens where there is
+  /// nothing to stop (the senior's home) and by Talk once the conversation has
+  /// been stopped: the senior asked for the stop pill to disappear after it is
+  /// pressed, leaving only the 已经停下来了 panel.
+  final bool showStop;
+
+  /// An action that must never scroll away, placed in the persistent bottom dock
+  /// directly above [StopBar] (Talk puts its microphone here).
+  ///
+  /// Only screens that pass it grow a dock: null keeps every other screen's
+  /// bottom bar byte-for-byte what it was, and the Stop control stays the last
+  /// thing above the system inset whichever way it is used.
+  final Widget? aboveStop;
+
   @override
   Widget build(BuildContext context) {
     final l = state.l;
+    // `scrollable` frames the body in one outer scroll view. The other mode
+    // (`scrollable: false`) hands the body the full remaining height instead, for
+    // a screen that owns its own scrolling and puts part of its layout below it
+    // (Talk: the caption stream scrolls, the microphone dock does not).
+    final Widget bodySlot = scrollable ? body : Expanded(child: body);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -50,11 +71,23 @@ class AnchorScaffold extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        body,
+        bodySlot,
         if (footer != null) ...<Widget>[const SizedBox(height: 24), footer!],
-        const SizedBox(height: 24),
+        if (scrollable) const SizedBox(height: 24),
       ],
     );
+
+    // Stop means "stop talking / stop listening". The family/setup phone has
+    // no voice at all (architecture change 2026-11-10), so it gets no Stop
+    // control either — there is nothing on this device for it to stop.
+    final Widget? stopBar = (state.policy.setupApp || !showStop)
+        ? null
+        : StopBar(
+            l: l,
+            label: stopLabel,
+            onStop: onStop ?? () => _defaultStop(context),
+          );
+    final Widget? dock = aboveStop;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,15 +107,14 @@ class AnchorScaffold extends StatelessWidget {
                 child: content,
               ),
       ),
-      // Stop means "stop talking / stop listening". The family/setup phone has
-      // no voice at all (architecture change 2026-11-10), so it gets no Stop
-      // control either — there is nothing on this device for it to stop.
-      bottomNavigationBar: state.policy.setupApp
+      bottomNavigationBar: stopBar == null
           ? null
-          : StopBar(
-              l: l,
-              label: stopLabel,
-              onStop: onStop ?? () => _defaultStop(context),
+          : dock == null
+          ? stopBar
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[dock, stopBar],
             ),
     );
   }

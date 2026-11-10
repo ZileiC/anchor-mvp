@@ -76,7 +76,8 @@ class L {
   String get greetingMorning => t('早上好', 'Good morning');
   String get greetingAfternoon => t('下午好', 'Good afternoon');
   String get greetingEvening => t('晚上好', 'Good evening');
-  String get homePrompt => t('想做什么？', 'What would you like to do?');
+  String get homePrompt =>
+      t('想说什么，按下面那个圆圈。', 'Press the circle below and say it.');
   String get actionTalk => t('聊一聊', 'Talk');
   String get actionTalkSub => t('说说话，我听着', 'Talk with me, I am listening');
   String get actionPlay => t('玩一玩', 'Play');

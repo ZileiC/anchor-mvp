@@ -53,11 +53,12 @@ void main() {
 
       expect(find.byType(SeniorHomeScreen), findsOneWidget);
       expect(find.byKey(const Key('primary-settings')), findsNothing);
-      // Nothing else was taken away from the senior.
+      // The voice disc and the family call remain; Play moved into the
+      // conversation and Stop lives only where something is running.
       expect(find.byKey(const Key('primary-talk')), findsOneWidget);
-      expect(find.byKey(const Key('primary-play')), findsOneWidget);
+      expect(find.byKey(const Key('primary-play')), findsNothing);
       expect(find.byKey(const Key('primary-call')), findsOneWidget);
-      expect(find.byKey(const Key('stop-control')), findsOneWidget);
+      expect(find.byKey(const Key('stop-control')), findsNothing);
 
       await disposeApp(tester);
     });

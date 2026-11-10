@@ -4,7 +4,9 @@ import 'package:anchor_app/l10n/strings.dart';
 import 'package:anchor_app/models/models.dart';
 import 'package:anchor_app/services/api_client.dart';
 import 'package:anchor_app/services/tts_service.dart';
+import 'package:anchor_app/screens/senior/activity_screen.dart';
 import 'package:anchor_app/state/app_state.dart';
+import 'package:anchor_app/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -73,8 +75,16 @@ void main() {
     Size size = const Size(390, 844),
     double textScale = 1.0,
   }) async {
-    await pumpSignedIn(tester, state, size: size, textScale: textScale);
-    await tester.tap(find.byKey(const Key('primary-play')));
+    // Pushed directly: the home page no longer carries a Play tile.
+    tester.view.devicePixelRatio = 2.0;
+    tester.view.physicalSize = Size(size.width * 2, size.height * 2);
+    addTearDown(tester.view.reset);
+    if (textScale != 1.0) {
+      tester.platformDispatcher.textScaleFactorTestValue = textScale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    }
+    await state.signInDemo(1);
+    await tester.pumpWidget(MaterialApp(theme: AnchorTheme.build(), home: ActivityScreen(state: state)));
     await settle(tester);
   }
 
@@ -442,7 +452,8 @@ void main() {
       await tapVoice(tester, settled: false);
       expect(state.recording, isTrue);
 
-      await tester.pageBack();
+      // The screen is pushed directly now, so leaving is a dispose.
+      await tester.pumpWidget(const SizedBox.shrink());
       await settle(tester);
 
       expect(state.recording, isFalse);

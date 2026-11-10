@@ -5,7 +5,6 @@ import 'package:anchor_app/models/models.dart';
 import 'package:anchor_app/platform_policy.dart';
 import 'package:anchor_app/screens/caregiver/caregiver_home.dart';
 import 'package:anchor_app/screens/login_screen.dart';
-import 'package:anchor_app/screens/senior/activity_screen.dart';
 import 'package:anchor_app/screens/senior/call_screen.dart';
 import 'package:anchor_app/screens/senior/home_screen.dart';
 import 'package:anchor_app/screens/senior/settings_screen.dart';
@@ -13,7 +12,6 @@ import 'package:anchor_app/screens/senior/talk_screen.dart';
 import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/state/app_state.dart';
 import 'package:anchor_app/theme.dart';
-import 'package:anchor_app/widgets/anchor_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,13 +61,17 @@ void main() {
       await pumpSignedIn(tester, state, size: const Size(390, 844));
 
       expect(find.byType(SeniorHomeScreen), findsOneWidget);
-      expect(find.byType(BigActionButton), findsNWidgets(3));
+      // Redesign 2026-11-10: one voice disc (the primary action) plus two quiet
+      // bars. The three tasks are still one tap away; they just no longer look
+      // like three equal buttons.
       expect(find.byKey(const Key('primary-talk')), findsOneWidget);
-      expect(find.byKey(const Key('primary-play')), findsOneWidget);
+      // Activities moved into the conversation: no separate Play door.
+      expect(find.byKey(const Key('primary-play')), findsNothing);
       expect(find.byKey(const Key('primary-call')), findsOneWidget);
       // Architecture change 2026-11-10: the senior's computer has no settings UI.
       expect(find.byKey(const Key('primary-settings')), findsNothing);
-      expect(find.byKey(const Key('stop-control')), findsOneWidget);
+      // Nothing on this page is running, so there is no Stop pill here.
+      expect(find.byKey(const Key('stop-control')), findsNothing);
 
       await disposeApp(tester);
     },
@@ -90,7 +92,6 @@ void main() {
     }
 
     await visit(const Key('primary-talk'), TalkScreen);
-    await visit(const Key('primary-play'), ActivityScreen);
     await visit(const Key('primary-call'), CallScreen);
 
     await disposeApp(tester);
@@ -133,7 +134,6 @@ void main() {
 
     for (final key in <Key>[
       const Key('primary-talk'),
-      const Key('primary-play'),
       const Key('primary-call'),
     ]) {
       final size = tester.getSize(find.byKey(key));
@@ -141,8 +141,6 @@ void main() {
       expect(size.width, greaterThanOrEqualTo(56), reason: '$key width');
     }
 
-    final stop = tester.getSize(find.byKey(const Key('stop-control')));
-    expect(stop.height, greaterThanOrEqualTo(56));
 
     await disposeApp(tester);
   });
@@ -160,7 +158,6 @@ void main() {
 
     for (final key in <Key>[
       const Key('primary-talk'),
-      const Key('primary-play'),
       const Key('primary-call'),
     ]) {
       await tester.ensureVisible(find.byKey(key));
@@ -186,7 +183,6 @@ void main() {
 
     for (final key in <Key>[
       const Key('primary-talk'),
-      const Key('primary-play'),
       const Key('primary-call'),
     ]) {
       await tester.ensureVisible(find.byKey(key));
@@ -307,8 +303,11 @@ void main() {
 
       expect(find.byKey(const Key('invitation-card')), findsOneWidget);
       expect(find.byKey(const Key('invitation-title')), findsOneWidget);
-      // Still exactly three primary actions: the invitation is not a fourth one.
-      expect(find.byType(BigActionButton), findsNWidgets(3));
+      // Still exactly three actions reachable: the invitation is not a fourth one.
+      expect(find.byKey(const Key('primary-talk')), findsOneWidget);
+      // Activities moved into the conversation: no separate Play door.
+      expect(find.byKey(const Key('primary-play')), findsNothing);
+      expect(find.byKey(const Key('primary-call')), findsOneWidget);
 
       for (final key in <Key>[
         const Key('invitation-accept'),

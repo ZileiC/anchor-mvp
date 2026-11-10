@@ -15,19 +15,38 @@ abstract final class AnchorTheme {
   /// Height of the three primary home actions on a phone.
   static const double primaryActionHeight = 104;
 
-  // High-contrast palette. Ink on canvas is ~16:1; white on primary ~8.6:1.
-  static const Color ink = Color(0xFF101820);
-  static const Color inkSoft = Color(0xFF2C3B47);
-  static const Color canvas = Color(0xFFFBF7EF);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color primary = Color(0xFF0F5132);
+  // High-contrast palette, redesigned 2026-11-10 (docs/design/senior-ui.md).
+  // Warm stone paper rather than the cream/terracotta default, one jade for the
+  // single primary action, ochre only for the secondary "play" action and the
+  // flower counter, brick only for Stop, teal only while listening.
+  static const Color paper = Color(0xFFF2EFE4);
+  static const Color paperRaised = Color(0xFFFAF8F0);
+  static const Color jade = Color(0xFF1F5C46);
+  static const Color jadeDeep = Color(0xFF16432F);
+  static const Color ochre = Color(0xFF9C6B1F);
+  static const Color brick = Color(0xFF8C2F23);
+  static const Color teal = Color(0xFF0E7A76);
+  static const Color line = Color(0xFFCFC9B6);
+
+  static const Color ink = Color(0xFF17211B);
+  static const Color inkSoft = Color(0xFF3D4A41);
+  static const Color canvas = paper;
+  static const Color surface = paperRaised;
+  static const Color primary = jade;
   static const Color onPrimary = Color(0xFFFFFFFF);
-  static const Color accent = Color(0xFF7A3E00);
+  static const Color accent = ochre;
   static const Color onAccent = Color(0xFFFFFFFF);
-  static const Color danger = Color(0xFF8B1A1A);
+  static const Color danger = brick;
   static const Color onDanger = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFF1F2A36);
-  static const Color muted = Color(0xFF3B4A57);
+  static const Color border = line;
+  static const Color muted = inkSoft;
+
+  /// Radius tokens: panels are softer than buttons, the voice disc is a circle.
+  static const double panelRadius = 20;
+  static const double buttonRadius = 16;
+
+  /// The diameter of the home page's single voice action.
+  static const double voiceDiscSize = 260;
 
   // Feedback fills shared by the Play screen and the in-chat activity card, so
   // a tap feels the same in both: pale green (this one is right), pale amber

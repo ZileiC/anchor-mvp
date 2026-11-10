@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../l10n/strings.dart';
 import '../theme.dart';
 
-/// The persistent Stop / Not now control required on every senior screen
-/// (SPEC §9, S7). It is always the last thing above the system inset, so it
-/// never scrolls away and never moves between screens.
+/// The persistent Stop control required on every senior screen (SPEC §9, S7).
+///
+/// Redesigned 2026-11-10 as a sticker rather than a panel: one compact brick
+/// bar, the last thing above the system inset, identical on every screen. It
+/// never scrolls (the scaffold hosts it in `bottomNavigationBar`), so it is
+/// always in the same place under the thumb — the product's escape hatch.
 class StopBar extends StatelessWidget {
   const StopBar({
     super.key,
@@ -26,49 +29,52 @@ class StopBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            ConstrainedBox(
-              key: const Key('stop-control'),
-              constraints: const BoxConstraints(minHeight: 72),
-              child: Semantics(
-                button: true,
-                label: '$text. ${hint ?? l.stopHint}',
-                child: FilledButton.icon(
-                  onPressed: onStop,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AnchorTheme.danger,
-                    foregroundColor: AnchorTheme.onDanger,
-                    minimumSize: const Size(AnchorTheme.minTouchTarget, 72),
-                    textStyle: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  icon: const Icon(Icons.stop_circle_outlined, size: 34),
-                  label: Text(
-                    text,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+        child: ConstrainedBox(
+          key: const Key('stop-control'),
+          constraints: const BoxConstraints(
+            minHeight: 64,
+            minWidth: AnchorTheme.minTouchTarget,
+          ),
+          child: Semantics(
+            button: true,
+            label: '$text. ${hint ?? l.stopHint}',
+            child: FilledButton(
+              onPressed: onStop,
+              style: FilledButton.styleFrom(
+                backgroundColor: AnchorTheme.brick,
+                foregroundColor: AnchorTheme.onDanger,
+                minimumSize: const Size(AnchorTheme.minTouchTarget, 64),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AnchorTheme.buttonRadius),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              hint ?? l.stopHint,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 22,
-                color: AnchorTheme.muted,
-                height: 1.3,
+              // A plain Row with a Flexible label: FilledButton.icon cannot
+              // shrink its text, and at 1.3x text "+ 停止 · 现在不要" overflowed
+              // the button on a 390 px phone.
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  const Icon(Icons.stop_circle_outlined, size: 30),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      text,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

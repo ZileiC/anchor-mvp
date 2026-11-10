@@ -61,8 +61,10 @@ void main() {
   SilentSpeaker speakerOf(AppState state) => state.speaker as SilentSpeaker;
 
   Future<void> openPlay(WidgetTester tester, AppState state) async {
-    await pumpSignedIn(tester, state, size: const Size(390, 844));
-    await tester.tap(find.byKey(const Key('primary-play')));
+    // The home page no longer has a Play tile (activities live inside the
+    // conversation now), so the screen is pushed directly.
+    await state.signInDemo(1);
+    await tester.pumpWidget(MaterialApp(theme: AnchorTheme.build(), home: ActivityScreen(state: state)));
     await settle(tester);
   }
 
@@ -241,13 +243,13 @@ void main() {
     ) async {
       final api = FakeApi()..feed = feedOf(trivia);
       final state = buildTestState(api);
-      await pumpSignedIn(
-        tester,
-        state,
-        size: const Size(390, 844),
-        textScale: 1.3,
-      );
-      await tester.tap(find.byKey(const Key('primary-play')));
+      await state.signInDemo(1);
+      tester.view.devicePixelRatio = 2.0;
+      tester.view.physicalSize = const Size(780, 1688);
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpWidget(MaterialApp(theme: AnchorTheme.build(), home: ActivityScreen(state: state)));
       await settle(tester);
       expect(tester.takeException(), isNull);
 
