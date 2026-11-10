@@ -277,7 +277,7 @@ curl.exe -H "Authorization: Bearer <senior-token>" http://127.0.0.1:8077/api/v1/
 | 文件 | 内容 |
 |---|---|
 | `docs/design/senior-ui.md` | 老人端重设计的 token、版面、动效与边界说明 |
-| `docs/handover.md` | 本文 |
+| `HANDOVER.md` | 本文 |
 
 **新增（平台拆分 + 活动进聊天 + 奖励 + Android 语音）**
 

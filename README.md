@@ -34,7 +34,7 @@ cd "$env:LOCALAPPDATA\anchor-build\mobile"
 flutter build apk --debug --dart-define=ANCHOR_API_BASE=http://<computer-ip>:8077
 ```
 
-The packaged backend listens on `0.0.0.0:8077` so the phone can reach it. Windows Firewall needs one inbound rule for TCP 8077; the first connection usually triggers the prompt, and `docs/handover.md` has the PowerShell one-liner for when it does not.
+The packaged backend listens on `0.0.0.0:8077` so the phone can reach it. Windows Firewall needs one inbound rule for TCP 8077; the first connection usually triggers the prompt, and `HANDOVER.md` has the PowerShell one-liner for when it does not.
 
 ## Run it on Windows
 
@@ -86,14 +86,14 @@ Green tests are not the same as a working product. We learned that the hard way:
 | `SPEC.md` | the engineering contract, still the reference for endpoints and invariants |
 | `BUILD_PLAN.md` | milestone ledger |
 | `docs/limitations.md` | what is measured and what is not, written to be uncomfortable |
-| `docs/handover.md` | how the two-device split works, and the weekly report work still open |
+| `HANDOVER.md` | how the two-device split works, and the weekly report work still open |
 | `docs/design/senior-ui.md` | the senior interface design: colours, type, layout, motion |
 | `docs/acceptance-checklist.md` | manual checks before a demo |
 | `docs/measurement.md` | the pilot protocol |
 
 ## Known limits
 
-This is a course deliverable, not a shipped medical product. There is no TLS anywhere, login is a dev endpoint that takes a user id, the APK is debug-signed and about 150 MB, and the weekly report does not yet have a generate endpoint or a caregiver inbox in the app. `docs/handover.md` section 6 lists all fourteen, including the ones that will bite during a live demo.
+This is a course deliverable, not a shipped medical product. There is no TLS anywhere, login is a dev endpoint that takes a user id, the APK is debug-signed and about 150 MB, and the weekly report does not yet have a generate endpoint or a caregiver inbox in the app. `HANDOVER.md` section 6 lists all fourteen, including the ones that will bite during a live demo.
 
 ## Team
 
