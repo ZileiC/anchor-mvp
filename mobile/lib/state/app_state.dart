@@ -858,6 +858,11 @@ class AppState extends ChangeNotifier {
     // the app that was holding the microphone may have let go. Always retry, and
     // only keep [micUnavailable] as "the last attempt failed".
     try {
+      // Silence our own voice first: the app speaks the greeting/reply and then
+      // opens the microphone, so without this the mic records the speaker and
+      // the recogniser transcribes Anchor talking to itself (measured: peak
+      // 32000 = clipped, transcript garbage). No echo cancellation is assumed.
+      await speaker.stop();
       await microphone.startRecording();
       recording = true;
       micFailed = false;
@@ -960,6 +965,9 @@ class AppState extends ChangeNotifier {
       // An earlier failure is not permanent (the headset may have reconnected),
       // so every attempt really tries again — exactly like Talk's mic button.
       micFailed = false;
+      // Never listen while Anchor is still speaking: the mic would capture the
+      // speaker (clipped) and the recogniser would transcribe our own words.
+      await speaker.stop();
       await microphone.startRecording();
       recording = true;
       micUnavailable = false;
@@ -987,6 +995,9 @@ class AppState extends ChangeNotifier {
       );
       if (ticket != _answerTicket) return null; // cancelled while transcribing
       final words = text.trim();
+      // Length only: the words themselves are the senior's speech and are not
+      // written to a log file.
+      debugPrint('Voice answer transcribed: ${words.length} chars');
       if (words.isEmpty) return null;
       lastError = null;
       notifyListeners();

@@ -15,9 +15,15 @@ class AnchorConfig {
   /// Versioned API prefix from SPEC §6.
   static const String apiPrefix = '/api/v1';
 
-  /// Full HTTP timeout for one request. Generous: the demo backend is local but
-  /// a slow ASR provider must not look like an offline device.
-  static const Duration requestTimeout = Duration(seconds: 15);
+  /// Full HTTP timeout for one request.
+  ///
+  /// 90 s, not 15 s: a spoken turn is upload → cloud ASR (0.6–10 s, provider
+  /// latency varies a lot) → LLM (2–5 s), so a 15 s budget made a perfectly
+  /// healthy backend look offline on any longer sentence ("The server took too
+  /// long to answer" was this constant, measured 2026-11-10). The startup probe
+  /// in `backend_bootstrapper.dart` keeps its own short timeout, so a dead
+  /// backend is still detected quickly.
+  static const Duration requestTimeout = Duration(seconds: 90);
 
   /// Dev-only demo identities from the seed (SPEC §4, scripts/seed_demo.py).
   static const DemoAccount seniorDemo = DemoAccount(

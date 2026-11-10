@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'services/api_client.dart';
 import 'services/app_log.dart';
 import 'services/backend_bootstrapper.dart';
+import 'services/backend_tts_speaker.dart';
 import 'services/dialer.dart';
 import 'services/speaker_factory.dart';
 import 'services/speech_input.dart';
@@ -16,6 +19,8 @@ void main() {
   // debugPrint (microphone failures included) also goes to
   // %LOCALAPPDATA%\Anchor\anchor_app.log.
   AppLog.install();
+  // Drop speech mp3s a previous run never cleaned up (crash / killed child).
+  unawaited(sweepStaleTtsFiles());
   final api = ApiClient();
   final state = AppState(
     api: api,

@@ -93,12 +93,15 @@ class RecordMicrophoneInput implements MicrophoneInput {
       if (error == null) {
         _path = path;
         _lastError = null;
-        if (errors.isNotEmpty) {
-          debugPrint(
-            'Microphone started with device=${config.device?.id ?? "default"} '
-            'rate=${config.sampleRate} after ${errors.length} failed attempt(s)',
-          );
-        }
+        // Always log which device/rate actually opened: with several audio
+        // endpoints on this machine (Bluetooth hands-free ones included) the
+        // "default" is not stable, and a wrong-but-open device records clipping.
+        debugPrint(
+          'Microphone started with device=${config.device?.id ?? "default"} '
+          'rate=${config.sampleRate} '
+          'aec=${config.echoCancel} ns=${config.noiseSuppress} '
+          '${errors.isEmpty ? "first try" : "after ${errors.length} failed attempt(s)"}',
+        );
         return;
       }
       errors.add(error);
@@ -133,7 +136,18 @@ class RecordMicrophoneInput implements MicrophoneInput {
       sampleRate: 16000,
       numChannels: 1,
     );
-    final configs = <RecordConfig>[base];
+    // Preferred: ask the device to cancel its own speaker and suppress steady
+    // noise (Windows implements this through WASAPI when the driver offers it).
+    // The plain config stays right behind it, so a device that rejects these
+    // flags still records — the attempt simply falls through to the next entry.
+    const echoCancelled = RecordConfig(
+      encoder: AudioEncoder.wav,
+      sampleRate: 16000,
+      numChannels: 1,
+      echoCancel: true,
+      noiseSuppress: true,
+    );
+    final configs = <RecordConfig>[echoCancelled, base];
     List<InputDevice> devices = const <InputDevice>[];
     try {
       devices = await _recorder.listInputDevices();
@@ -207,11 +221,20 @@ class RecordMicrophoneInput implements MicrophoneInput {
         );
         return null;
       }
+      final peak = _peak(bytes);
       debugPrint(
         'Microphone captured ${bytes.length} bytes '
         '(~${(bytes.length / 32000).toStringAsFixed(1)}s at 16 kHz mono, '
-        'peak=${_peak(bytes)})',
+        'peak=$peak)',
       );
+      if (peak >= 30000) {
+        // Full-scale samples: the input is clipping, which smears consonants and
+        // makes the recogniser answer with nonsense. Logged so it is visible.
+        debugPrint(
+          'Microphone audio is clipped (peak=$peak/32767); '
+          'the input gain is too high or the speaker is bleeding into the mic',
+        );
+      }
       return RecordedAudio(base64: base64Encode(bytes), mimeType: 'audio/wav');
     } catch (error) {
       debugPrint('Microphone stop failed: $error');

@@ -8,13 +8,24 @@ import 'speaker.dart';
 
 /// Handle to one spawned speech process, so [Speaker.stop] can silence it.
 class SpeechProcessHandle {
-  const SpeechProcessHandle({required this.kill, required this.done});
+  const SpeechProcessHandle({
+    required this.kill,
+    required this.done,
+    this.exitCode,
+  });
 
   /// Terminates the process that is currently speaking.
   final void Function() kill;
 
   /// Completes when the process is gone (normally or killed).
   final Future<void> done;
+
+  /// The child's exit code when the launcher can report it (a real process).
+  ///
+  /// The MediaPlayer script exits 0 only after it really played the file to the
+  /// end, and 3 when it could not open it at all — so a non-zero code is the
+  /// difference between "the senior heard that" and silence.
+  final Future<int>? exitCode;
 }
 
 /// Seam over process spawning so the speaker is unit-testable without a real
@@ -41,6 +52,7 @@ class WindowsSapiLauncher implements SpeechProcessLauncher {
     unawaited(process.stdout.drain<void>().catchError((Object _) {}));
     unawaited(process.stderr.drain<void>().catchError((Object _) {}));
     return SpeechProcessHandle(
+      exitCode: process.exitCode,
       kill: () {
         try {
           process.kill();
