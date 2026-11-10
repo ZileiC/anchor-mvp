@@ -3,7 +3,7 @@
 > 架构调整日期：2026-11-10（同日完成老人端整体 UI 重做）
 > 本文覆盖：Windows / Android 两端形态拆分（语音只在电脑，设置只在手机）+ 手机端 setup 首页 + 老人端新界面
 > 代码状态：`mobile/lib`、`mobile/test` 内已完成并已提交推送；`flutter analyze` 无问题，`flutter test` **286 个测试全绿**，后端 `pytest` **399 全绿**。Windows 包已在本机装机验证；**Android APK 只验证了「能构建 + 清单权限正确」，没有真机装过。**
-> 交接对象：接下来做「周报 / 家人提醒」的同学（重点看第 5 节）。
+> 交接对象：接下来做「周报 / 家人提醒」的同学。**第 5 节是给这份工作的任务说明书（生成 → 排版 → 子女端查收 → 演示样例）**。
 
 ---
 
@@ -148,64 +148,97 @@ flutter test        # 期望：276 tests, All tests passed!
 
 ---
 
-## 5. 周报（digests）——留给接手的同学
+## 5. 周报（weekly report）——**接手同学的主任务**
 
-### 5.1 数据从哪来
+> 一句话：**让家人每周在手机上收到一份「够详实、排得好、能直接拿去 presentation」的周报。**
 
-1. **素材**：`observations` 表（对话 / 活动产生的观察，保留 35 天，由 `retention_purge` 清理）。只有老人开了 `record_observations` 且某些 `share_topic` 也同意的主题才会被读。
-2. **组装**：`backend/app/digests/service.py` → `DigestService.ensure_weekly_digest(senior_id, period_start, period_end)`
-   - 先查 `digests` 表同 `(senior_id, period_start)` 是否存在，存在就直接返回（幂等）。
-   - `_build()`：`record_observations` 关 / 没有任何可分享主题 / `baseline.adequate_data()` 判断数据不够 → 状态 `insufficient_data`、`items` 为空（宁可不写，不凑数）。
-   - 否则 `baseline.select_candidates()` 选素材 → `render.render_items()` 生成**最多 3 条** `{topic, text, evidence_ids:[...]}`，语言跟随老人 `locale`。
-3. **存储**：`digests` 表一人一周一行，`UNIQUE(senior_id, period_start)`；状态机 `draft → awaiting_senior_approval → approved → delivered`，另有 `cancelled`、`insufficient_data`；正文在 `items_json`，另记 `consent_version`（批准时的同意版本）。
-4. **家人能看的**：`GET /digests` 对家人只返回 `approved`/`delivered`，而且每条 item 会按**当前**关系和 `share_topic` 再过滤一遍（`_filter_items`）——撤销分享后，已批准的行也会被重新过滤。原始 observation 永不下发。
+这一段是工作说明书，不是背景介绍。做完这四件事，这一块就算交付。
 
-### 5.2 接口（以代码为准）
+### 5.1 你要交付的四件东西（缺一不算完成）
 
-⚠️ 任务描述里的 `POST /api/v1/digests` **不存在**。现在的 surface 是：
+| # | 交付物 | 完成的样子 |
+|---|---|---|
+| 1 | **周报生成（主责）** | 内容足够详实：这一周发生了什么、聊过哪些主题、参加了什么活动、情绪与社交线索、家人可以从哪里关心。不是现在的最多 3 句摘要 |
+| 2 | **排版** | 子女端能扫读的版式：周期标题 → 一句话概览 → 分主题小节 → 证据可展开 → 底部「打个电话」 |
+| 3 | **子女端查收** | 家人手机收到「本周简报」提醒（未读角标）→ 列表 → 详情 → 标已读，全链路可点通 |
+| 4 | **presentation 用的一份 example** | 一份预置数据 + 生成好的那份周报（能当场打开的种子数据或截图）+ 30 秒讲解要点 |
+
+### 5.2 内容要求：详实，但不越界
+
+一份周报至少要有下面这些**分主题段落**，每段都要有具体事实，不要写"总体不错"这种空话：
+
+1. **这一周的一句话概览**：例如「这周聊了 4 次，参加了 2 个小活动，提到最多的是老家的院子和孙子」。
+2. **聊过的话题**：从 `observations` 里按主题归并（饮食/家人/活动/心情/睡眠/身体感受…），每段 1–3 句，写"她说了什么"，不要写"她很好"。
+3. **参与情况**：哪天聊了、玩了什么活动、答对了几题（对应小花），是主动打开还是被问候拉进来的。
+4. **情绪与社交线索**：出现过的情绪词、提到的人；**只陈述，不判断**——可以写"提到阿毛（孙子）时说了三次"，不能写"情绪低落"。
+5. **家人可以怎么关心**：2–3 条具体、轻量的建议（"下次可以问问院子里的花"），不要建议就医、吃药、报警。
+6. **数据不足时如实说**：素材不够就写"这周聊得少，只说了一件小事"，绝不凑数、不编造（现有 `baseline.adequate_data()` 已有这个判断，保留）。
+
+**红线**：不写诊断、不写评分、不写"认知水平/记忆力"；不引用老人的原话超过必要长度；不出现其他家庭的任何信息；每条事实要能在 `evidence_ids` 里找到来源。
+
+### 5.3 排版要求
+
+- 载体是**手机上的家人端**（`SetupHomeScreen` → 家人与联系 → 本周简报），竖屏、字号不小于 16、单列。
+- 结构固定：`周期（2026-11-03 ~ 11-09）` → 一句话概览（大字）→ 分主题小节（标题 + 2–3 句）→「这一周的记录」可展开的证据列表 → 底部主按钮「打个电话问候」。
+- 空态/不足态要有话说（"这周信息还不够，等下周再看看"），不要显示空白页。
+- 复用现有主题（`mobile/lib/theme.dart` 的 paper/jade/ink），不要引入新配色体系。
+
+### 5.4 子女端查收（现在缺的部分）
+
+现状：`digests` 与 `notifications` 表都有数据，接口也有；**手机端没有对应界面**，家人只能靠开发者工具调接口。
+
+要补的最小闭环：
+
+1. setup 首页显示未读角标（`GET /api/v1/notifications`，`kind='digest_ready'`）。
+2. 点开进入「本周简报」列表（`GET /api/v1/digests`，家人只拿到 `approved`/`delivered`）。
+3. 详情页渲染 5.3 的排版；点「已读」写 `PATCH /api/v1/notifications/{id}`。
+4. 没有 FCM/APNs 的前提下，用前台轮询即可（每 60 s），不要假装有推送。
+
+### 5.5 presentation 用的 example（明确交付）
+
+- 一份**可重复生成**的种子：`scripts/seed_demo.py` 现在会生成上一周的周报，请在它基础上补一份"素材丰富的一周"（至少 4 天对话、2 个活动、3 个主题、1 条提到家人的记录）。
+- 一份**已经生成好的周报正文**（Markdown 或截图），放在 `docs/digest-example.md`，用来直接在投影上讲。
+- 一段 **30 秒讲解**：这周她聊了什么 → 系统怎么归并 → 家人看到什么 → 为什么这样对老人和家人都好。
+
+### 5.6 现有链路（直接用，不要重写）
+
+1. **素材**：`observations` 表（保留 35 天，`retention_purge` 清理）。只有老人开了 `record_observations` 且主题在 `share_topic` 里才读。
+2. **组装**：`backend/app/digests/service.py` → `ensure_weekly_digest(senior_id, period_start, period_end)`
+   - 幂等：同 `(senior_id, period_start)` 已存在直接返回；
+   - `_build()`：同意关 / 无可分享主题 / `baseline.adequate_data()` 不够 → `insufficient_data` + 空 items（不凑数）；
+   - 否则 `baseline.select_candidates()` → `render.render_items()`，语言跟随老人 `locale`。
+3. **存储**：`digests` 表一人一周一行，`UNIQUE(senior_id, period_start)`；状态 `draft → awaiting_senior_approval → approved → delivered`，另有 `cancelled` / `insufficient_data`；正文在 `items_json`，另记 `consent_version`。
+4. **家人可见**：`GET /digests` 对家人只返回 `approved`/`delivered`，每条 item 再按当前关系与 `share_topic` 过滤（`_filter_items`）；原始 observation 永不下发。
+
+### 5.7 接口（以代码为准）
+
+⚠️ 任务描述里的 `POST /api/v1/digests` **不存在**。
 
 | 方法 | 路径 | 谁能调 | 说明 |
 |---|---|---|---|
-| GET | `/api/v1/digests` | 任何登录用户 | 老人：自己全部状态；家人：只 approved/delivered。返回 `{"items":[...]}`，家人无数据时 `{"items":[],"note":"insufficient_information"}` |
-| GET | `/api/v1/digests/{id}` | 任何登录用户 | 单条；家人读未批准 → 403 |
-| PATCH | `/api/v1/digests/{id}` | **仅老人**（`require_senior`） | 改说法：items 写入 → `awaiting_senior_approval`，并取消未投递的 `notify_digest` |
-| POST | `/api/v1/digests/{id}/approve` | **仅老人** | 同意 → `approved`，入队一条 `notify_digest` |
+| GET | `/api/v1/digests` | 登录用户 | 老人：全部状态；家人：仅 approved/delivered；无数据时 `{"items":[],"note":"insufficient_information"}` |
+| GET | `/api/v1/digests/{id}` | 登录用户 | 单条；家人读未批准 → 403 |
+| PATCH | `/api/v1/digests/{id}` | 仅老人 | 改说法 → `awaiting_senior_approval`，并取消未投递的通知 |
+| POST | `/api/v1/digests/{id}/approve` | 仅老人 | 批准 → 入队 `notify_digest` |
+| GET / PATCH | `/api/v1/notifications[/{id}]` | 登录用户 | 家人提醒与已读 |
 
-通知（家人提醒的数据源）：`GET /api/v1/notifications`、`PATCH /api/v1/notifications/{id}`（标已读）。
+**要补的生成入口**：周报由 worker 定时生成（`jobs.py::enqueue_due_jobs` → `JobRunner._weekly_digest`），没有"立刻生成"接口。若要在演示时补生成，加一个受控入口（仅老人、幂等、写审计），不要用脚本直接改库。
 
-### 5.3 生成入口现在在哪里
+### 5.8 验收标准（可执行）
 
-1. `backend/app/jobs.py` → `enqueue_due_jobs(ctx)`：对每个老人按他的时区算「上一个 ISO 周」和「本周一 09:00」（`WEEKLY_DIGEST_HOUR = 9`）。到点入队 `weekly_digest`，幂等键 `weekly_digest:{senior_id}:{period_start}`；同时入队当天的 `retention_purge`。
-2. `JobRunner._weekly_digest` → `DigestService.ensure_weekly_digest(...)`（重复跑不会多出行）。
-3. 老人 `approve` → 入队 `notify_digest` → `DigestService.deliver(digest_id)`：再检查状态 / 关系 / 同意，写一行 `notifications(kind='digest_ready')`（通用文案，不含周报正文），digest 置 `delivered`。
-4. **运行方式**：`scripts/run_worker.ps1`（常驻，默认 60s 一轮）或 `scripts/run_worker.ps1 -Once`（= `python -m app.worker --once`，演示/冒烟）。演示数据用 `scripts/seed_demo.py`（它会顺手生成上一周的周报）。
-5. worker 必须**单实例**：SQLite + `jobs` 表的租约（`ANCHOR_JOB_LEASE_SECONDS`）保护，多实例同库会互相抢租约。
+1. `flutter analyze` 无问题、`flutter test` 全绿；`pytest backend/tests -q` 全绿（当前 286 / 399）。
+2. 同一 `(senior, period)` 跑两遍 worker 只出 1 行 digest、1 条通知（`backend/tests/test_digests.py` 已有）。
+3. 家人端：未读角标 → 列表 → 详情 → 已读，全链路手工点通一遍（截图留证）。
+4. 周报正文满足 5.2 的六段结构与红线；`language_guard.py` 仍拦截诊断/评分措辞。
+5. 撤销分享后再拉取，已批准的 item 也会被过滤掉（现有测试覆盖，改渲染不能破坏它）。
+6. `docs/digest-example.md` 里的示例与种子脚本一致，可以现场复现。
 
-### 5.4 手机端现在能看到什么
+### 5.9 红线（写在这里免得返工）
 
-- **setup 首页**「消息与操作记录」卡片（`lib/screens/setup/setup_home_screen.dart`）：
-  - `setup-records-digest`：一行状态（还没有生成 / 等老人同意后才会发出 / 已经同意，家人可以看了 / 这周的信息还不够）
-  - `setup-records-note`：一句「谁改过设置、谁打过电话，电脑端都有记录；手机上的查看界面还没做」
-- **家人屏幕**：hub → 家人与联系 → 本周简报（`DigestScreen`）读 `GET /digests`，只显示已批准/已投递的，可「打个电话问候」。
-- **老人账号**：hub → 设置与设备 → `SettingsScreen` 的「给家人的简报」区，可以改说法、同意发给家人（这是现有审批 UI）。
-
-### 5.5 还缺什么（按优先级）
-
-1. **家人端提醒（最缺）**：`notifications` 表有数据、接口也有，但手机 `ApiClient` 没有对应方法，也没有列表或未读角标。最小闭环：hub 显示未读数 → 点开看到 `digest_ready` → 进 `DigestScreen`。
-2. **真推送**：没有 FCM / APNs，也没有本地通知插件（`docs/limitations.md` 第 6 条同样适用）。现在的提醒只能靠 App 前台轮询，App 不在前台就收不到。
-3. **审批流 UI 细节**：老人端 PATCH→approve 的先后、按钮禁用态、`insufficient_data` 空态、批准后重新拉取（现在 `AppState.digests` 是本地替换，没有重新 GET）；setup hub 的状态行也应在批准后就地刷新。
-4. **手机端「立刻生成」**：没有生成接口，worker 之外没法补生成。要做得后端加一个受控入口（仅老人 + 幂等 + 审计），本次约定不动 `backend/`。
-5. **家人账号改不了 AI 接入**：`GET/PUT /providers` 都是 `require_senior`，家人点进 AI 接入会看到「由老人管理」。演示时用**老人身份**登录手机即可配置；要真的让家人配，这是后端权限问题（本次不动 `backend/`）。
-
-### 5.6 验收标准（可执行）
-
-1. `flutter analyze` 无问题；`flutter test` 全绿（当前 276）。
-2. 手机端（`PlatformPolicy.setupApp`）：hub 上没有「聊一聊/玩一玩/打电话/停止」，有 `setup-ai`、`setup-device-note`、`setup-records-digest` —— `test/platform_split_test.dart` 已覆盖。
-3. 电脑端（`seniorAppliance`）：`primary-settings` 不存在；手搓 `SettingsScreen` / `AiProvidersScreen` 路由会退回首页 —— 同文件已覆盖。
-4. 手机端任何路径都不碰麦克风：`AppState.startRecording()` 返回 `false`、`FakeMicrophoneInput.startCalls == 0`；`listenForAnswer()` / `captureProbeClip()` 都返回空 —— 已覆盖。
-5. 周报链路（后端测试已有，改前端不用改后端）：同一 `(senior, period)` 跑两遍 worker 只出 1 行 digest、1 条通知；`draft` 状态家人 `GET /digests` 看不到（`backend/tests/test_digests.py`）。
-6. 家人提醒（要新做的部分）：收到 `digest_ready` 后 hub 可见未读 → 点开能看到那份周报 → 「已读」写回 `PATCH /notifications/{id}`。
-7. 内容约束：≤3 条、每条带 `evidence_ids`、无诊断/评分措辞（`backend/app/digests/language_guard.py`）。
+- 不新增真实老人数据；示例全部是合成数据。
+- 不在周报里出现原始对话全文、音频、其他家庭、供应商 key。
+- 不做医疗建议、不评估认知、不做排名。
+- 不为了让演示好看而伪造"数据充分"，不足就如实显示不足。
 
 最小复现命令（在 `anchor/` 下）：
 
