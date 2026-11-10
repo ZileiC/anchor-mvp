@@ -127,10 +127,7 @@ class FakePlayerFactory implements SpeechAudioPlayerFactory {
 
   @override
   SpeechAudioPlayer create() {
-    final player = FakePlayer(
-      autoFinish: autoFinish,
-      failOnStart: failOnStart,
-    );
+    final player = FakePlayer(autoFinish: autoFinish, failOnStart: failOnStart);
     players.add(player);
     return player;
   }
@@ -209,9 +206,7 @@ void main() {
     Duration? playbackTimeout,
   }) {
     return AndroidTtsSpeaker(
-      api:
-          api ??
-          FakeTtsApi(),
+      api: api ?? FakeTtsApi(),
       fallback: fallback ?? RecordingSpeaker(),
       playerFactory: players ?? FakePlayerFactory(),
       tempDirectory: tempDirectory,
@@ -220,39 +215,42 @@ void main() {
   }
 
   group('Android neural speaker', () {
-    test('fetches the mp3, writes it to a temp file and plays that file', () async {
-      final api = FakeTtsApi();
-      final players = FakePlayerFactory();
-      final speaker = buildSpeaker(api: api, players: players);
+    test(
+      'fetches the mp3, writes it to a temp file and plays that file',
+      () async {
+        final api = FakeTtsApi();
+        final players = FakePlayerFactory();
+        final speaker = buildSpeaker(api: api, players: players);
 
-      await speaker.speak('早上好，今天想聊点什么？');
+        await speaker.speak('早上好，今天想聊点什么？');
 
-      expect(api.calls, 1);
-      expect(api.lastText, '早上好，今天想聊点什么？');
+        expect(api.calls, 1);
+        expect(api.lastText, '早上好，今天想聊点什么？');
 
-      final files = tempFiles();
-      expect(files, hasLength(1));
-      expect(files.single.path, endsWith('.mp3'));
-      expect(
-        files.single.readAsBytesSync(),
-        api.audio,
-        reason: 'the mp3 bytes must reach the file untouched',
-      );
+        final files = tempFiles();
+        expect(files, hasLength(1));
+        expect(files.single.path, endsWith('.mp3'));
+        expect(
+          files.single.readAsBytesSync(),
+          api.audio,
+          reason: 'the mp3 bytes must reach the file untouched',
+        );
 
-      expect(players.players, hasLength(1));
-      expect(players.last.startCount, 1);
-      expect(
-        players.last.startedPath,
-        files.single.path,
-        reason: 'the player must be handed exactly that file',
-      );
-      expect(speaker.speaking, isTrue);
-      expect(speaker.lastAttemptFailed, isFalse);
+        expect(players.players, hasLength(1));
+        expect(players.last.startCount, 1);
+        expect(
+          players.last.startedPath,
+          files.single.path,
+          reason: 'the player must be handed exactly that file',
+        );
+        expect(speaker.speaking, isTrue);
+        expect(speaker.lastAttemptFailed, isFalse);
 
-      players.last.finish();
-      await drainCleanup();
-      expect(speaker.speaking, isFalse);
-    });
+        players.last.finish();
+        await drainCleanup();
+        expect(speaker.speaking, isFalse);
+      },
+    );
 
     test('the temp file is deleted when playback ends by itself', () async {
       final players = FakePlayerFactory(autoFinish: true);
@@ -374,17 +372,19 @@ void main() {
       );
       final players = FakePlayerFactory();
       final fallback = RecordingSpeaker();
-      final speaker = buildSpeaker(api: api, players: players, fallback: fallback);
+      final speaker = buildSpeaker(
+        api: api,
+        players: players,
+        fallback: fallback,
+      );
 
       await speaker.speak('后端不可用时也要说话');
 
       expect(api.calls, 1);
       expect(players.players, isEmpty, reason: 'nothing to play');
-      expect(
-        fallback.spoken,
-        ['后端不可用时也要说话'],
-        reason: 'the demo must still speak',
-      );
+      expect(fallback.spoken, [
+        '后端不可用时也要说话',
+      ], reason: 'the demo must still speak');
       expect(
         speaker.lastAttemptFailed,
         isTrue,
@@ -415,7 +415,11 @@ void main() {
       final api = FakeTtsApi(audio: Uint8List(0));
       final players = FakePlayerFactory();
       final fallback = RecordingSpeaker();
-      final speaker = buildSpeaker(api: api, players: players, fallback: fallback);
+      final speaker = buildSpeaker(
+        api: api,
+        players: players,
+        fallback: fallback,
+      );
 
       await speaker.speak('空音频');
 
@@ -425,24 +429,31 @@ void main() {
       expect(tempFiles(), isEmpty);
     });
 
-    test('a player that cannot start the file falls back and cleans up', () async {
-      final api = FakeTtsApi();
-      final players = FakePlayerFactory(failOnStart: true);
-      final fallback = RecordingSpeaker();
-      final speaker = buildSpeaker(api: api, players: players, fallback: fallback);
+    test(
+      'a player that cannot start the file falls back and cleans up',
+      () async {
+        final api = FakeTtsApi();
+        final players = FakePlayerFactory(failOnStart: true);
+        final fallback = RecordingSpeaker();
+        final speaker = buildSpeaker(
+          api: api,
+          players: players,
+          fallback: fallback,
+        );
 
-      await speaker.speak('没有播放器也要说话');
+        await speaker.speak('没有播放器也要说话');
 
-      expect(players.players, hasLength(1));
-      expect(fallback.spoken, ['没有播放器也要说话']);
-      expect(speaker.lastAttemptFailed, isTrue);
-      await drainCleanup();
-      expect(
-        tempFiles(),
-        isEmpty,
-        reason: 'the mp3 written for the failed player is cleaned up',
-      );
-    });
+        expect(players.players, hasLength(1));
+        expect(fallback.spoken, ['没有播放器也要说话']);
+        expect(speaker.lastAttemptFailed, isTrue);
+        await drainCleanup();
+        expect(
+          tempFiles(),
+          isEmpty,
+          reason: 'the mp3 written for the failed player is cleaned up',
+        );
+      },
+    );
 
     test('playback that dies mid-sentence falls back', () async {
       final players = FakePlayerFactory();
@@ -488,33 +499,44 @@ void main() {
       },
     );
 
-    test('Stop during the download stays silent instead of falling back', () async {
-      final api = FakeTtsApi()..pending = Completer<Uint8List>();
-      final players = FakePlayerFactory();
-      final fallback = RecordingSpeaker();
-      final speaker = buildSpeaker(api: api, players: players, fallback: fallback);
+    test(
+      'Stop during the download stays silent instead of falling back',
+      () async {
+        final api = FakeTtsApi()..pending = Completer<Uint8List>();
+        final players = FakePlayerFactory();
+        final fallback = RecordingSpeaker();
+        final speaker = buildSpeaker(
+          api: api,
+          players: players,
+          fallback: fallback,
+        );
 
-      final speaking = speaker.speak('用户说了不要再说');
-      await pumpEventQueue();
-      await speaker.stop();
-      api.pending!.complete(api.audio);
-      await speaking;
+        final speaking = speaker.speak('用户说了不要再说');
+        await pumpEventQueue();
+        await speaker.stop();
+        api.pending!.complete(api.audio);
+        await speaking;
 
-      expect(players.players, isEmpty);
-      expect(
-        fallback.spoken,
-        isEmpty,
-        reason: 'Stop must never be followed by speech of any kind',
-      );
-      expect(tempFiles(), isEmpty);
-      expect(speaker.lastAttemptFailed, isFalse);
-    });
+        expect(players.players, isEmpty);
+        expect(
+          fallback.spoken,
+          isEmpty,
+          reason: 'Stop must never be followed by speech of any kind',
+        );
+        expect(tempFiles(), isEmpty);
+        expect(speaker.lastAttemptFailed, isFalse);
+      },
+    );
 
     test('audio that arrives after Stop is thrown away', () async {
       final api = FakeTtsApi(error: const ApiCancelled());
       final players = FakePlayerFactory();
       final fallback = RecordingSpeaker();
-      final speaker = buildSpeaker(api: api, players: players, fallback: fallback);
+      final speaker = buildSpeaker(
+        api: api,
+        players: players,
+        fallback: fallback,
+      );
 
       await speaker.speak('用户说了不要再说');
 

@@ -84,7 +84,12 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     }
     await state.signInDemo(1);
-    await tester.pumpWidget(MaterialApp(theme: AnchorTheme.build(), home: ActivityScreen(state: state)));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AnchorTheme.build(),
+        home: ActivityScreen(state: state),
+      ),
+    );
     await settle(tester);
   }
 

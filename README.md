@@ -1,143 +1,104 @@
-# Anchor — voice-first companion for older adults (MVP)
+<p align="center">
+  <img src="docs/assets/anchor-logo.png" alt="Anchor logo" width="150">
+</p>
 
-Anchor is a voice-first companion service for older adults living independently, with a caregiver
-bridge that shares only what the older adult explicitly approves. It runs on ordinary phones and
-tablets — no special hardware, no camera, no continuous room recording.
+# Anchor
 
-This repository implements the MVP specified in `../Anchor_Software_Design_and_MVP_Guide.md`.
-The engineering contract is `SPEC.md`; the milestone ledger is `BUILD_PLAN.md`; the honest list of
-what is **not** measured is `docs/limitations.md`.
+A companion for an older adult who lives alone.
 
-## What is in the box
+It runs on two devices, on purpose. The computer in the living room is what the senior touches: one big circle, talk, listen. The phone belongs to the family. It holds the API keys and the model names, the family contacts, and the weekly digest. It never opens a microphone.
 
-| Part | Path |
-|---|---|
-| FastAPI backend (auth, consent, conversation, activities, memories, digests, worker) | `backend/` |
-| Flutter app — older-adult mode + caregiver mode | `mobile/` |
-| Curated activity pack (trivia / stories / memory prompts, adult-level, with answers, explanations and spoken feedback) | `content/activities.json` |
-| Setup, acceptance checklist, measurement protocol, limitations | `docs/` |
-| One-command scripts (bootstrap, run, build, verify, seed, WER) | `scripts/` |
-| Frozen contract + decisions log | `SPEC.md`, `DECISIONS.md` |
+We took the settings screen off the computer and the voice off the phone after watching someone in their seventies hunt for a save button they did not need. Splitting the product was simpler than hiding things from them.
 
-## Contributing (team workflow)
+![Login screen](docs/assets/screenshot-login.png)
 
-The repository is public; `main` is integration-owned. Teammates work through **fork + Pull Request**
-— see [CONTRIBUTING.md](CONTRIBUTING.md) for the branch/verify/PR checklist and the Windows build
-environment caveats.
+## What it does
 
-## Demo build (no Flutter install needed)
+Say "今天有点闷" and Anchor answers out loud. Speech goes to a cloud recognizer, DeepSeek writes the reply, and the voice is a neural one. The Windows SAPI voice sounded like a train announcement from 1998, so it is only a fallback now. The caption appears a couple of seconds before the audio starts, because synthesis takes three to seven seconds and pretending otherwise would just confuse people.
 
-[**Download the Windows x64 build →**](https://github.com/ZileiC/anchor-mvp/releases/latest)
-(`AnchorDemo-0.2.0.zip`, ~44 MB). **Double-click `anchor_app.exe`** — it auto-starts the bundled
-backend, no Python/Flutter needed. Demo accounts: **1 = 林秀兰** (older adult), **2 = Mei**
-(caregiver). Then open **Settings → AI 接入** and paste a DeepSeek key for real model replies (the
-packaged backend already uses the local Windows recognizer for voice). The zip contains
-`README-DEMO.txt` with the same instructions.
+After the third exchange an activity turns up inside the conversation. Sometimes it is a question about kitchen safety. Sometimes it is a short story about a sewing machine, or a prompt about the dish their mother cooked. You answer by tapping or by saying it out loud. A right answer adds a flower to the count. A wrong one shows the right answer and explains why, and the word "wrong" is not used anywhere in the app. There is no score, no level, and nothing to compare with anyone else.
 
-## Connect a real model and real speech (do this before demoing)
+Calling family is one tap. Stop is visible only while something is actually running, and it disappears the moment the senior presses it. That was not the original design. The original kept a red stop bar on every screen and an elderly user asked why it was still stuck there after she had stopped.
 
-The app is honest by default: replies come from a deterministic offline template engine (labelled
-“离线模板回复”) and the mic is disabled unless a recognizer exists. To make the demo real:
+![Home screen](docs/assets/screenshot-home.png)
 
-1. Open **Settings → AI 接入（模型/语音）**.
-2. Tap **填入 DeepSeek 预设**, paste your API key, **保存**, then **测试连接** — a real reply sample
-   proves the endpoint works. Replies become model-generated immediately (no restart).
-3. Speech: on Windows the packaged backend uses the local System.Speech recognizer automatically
-   (`本机离线语音`, zh-CN when installed); no key needed. Alternatively configure an OpenAI-compatible
-   ASR endpoint on the same screen. Without either, Talk says “语音识别还没有接入” and keeps typing.
+## What it does not do
 
-Live-verified on this machine: DeepSeek reply “好呀，我陪你聊聊。你阳台上那些花，最近开得怎么样？”;
-SAPI transcript “今天天气不错” from a spoken WAV. Keys stay in the local SQLite file for this
-self-hosted demo, are masked in every API response, and are never logged.
+No camera. No continuous recording; the microphone opens only while a turn is captured, and a cancelled recording is deleted rather than left in `%TEMP%`. No diagnosis, no cognitive scoring, no leaderboards. The activity pack is conversation material, not a screening tool, and nothing in the interface calls it one.
 
-## Quickstart (Windows)
+## How the two halves connect
+
+The backend runs on the computer and holds everything that matters: the SQLite database, the provider keys, the speech calls. The phone is a client. Both need to be on the same network, which in practice means the computer joins the phone's hotspot or the home Wi-Fi.
+
+The phone's backend address is compiled in, not typed in, because typing an IP address is not something we want to ask of this user. Rebuild the APK when the address changes:
+
+```powershell
+. .\scripts\_common.ps1 ; Sync-MobileToAscii
+cd "$env:LOCALAPPDATA\anchor-build\mobile"
+flutter build apk --debug --dart-define=ANCHOR_API_BASE=http://<computer-ip>:8077
+```
+
+The packaged backend listens on `0.0.0.0:8077` so the phone can reach it. Windows Firewall needs one inbound rule for TCP 8077; the first connection usually triggers the prompt, and `docs/handover.md` has the PowerShell one-liner for when it does not.
+
+## Run it on Windows
 
 ```powershell
 cd anchor
-
-# 1. Python environment (creates .venv, installs deps, migrates the DB)
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
-
-# 2. Terminal A — backend on http://127.0.0.1:8077
-powershell -File scripts/run_backend.ps1
-
-# 3. Terminal B — worker (weekly digests, retention purge)
-powershell -File scripts/run_worker.ps1
-
-# 4. Terminal C — desktop app (builds first if needed)
-powershell -File scripts/run_app.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1   # venv, deps, migrations
+powershell -File scripts/run_backend.ps1                                    # terminal A
+powershell -File scripts/run_worker.ps1                                     # terminal B: weekly digests, retention
+powershell -File scripts/run_app.ps1                                        # terminal C: the app
 ```
 
-Seed the demo household before the demo:
+The demo household is seeded on first run: user 1 is the senior, user 2 is the caregiver. To build the self-contained package that a family could actually double-click:
 
 ```powershell
-cd backend
-..\.venv\Scripts\python.exe ..\scripts\seed_demo.py
+powershell -File scripts/build_backend.ps1
+powershell -File scripts/package_windows.ps1
 ```
 
-Demo users: **1 = 林秀兰 (older adult)**, **2 = Mei (caregiver)**. The app's demo screen logs in by id.
+That produces `mobile\dist\AnchorDemo-<version>.zip` with the app and the frozen backend inside.
 
-## Five-minute demo script (what to click)
+## Configure models and speech
 
-1. **Home** — three large buttons (Talk / Play / Call) plus Settings; the Stop/Not now bar is on every
-   screen. Nothing else to learn.
-2. **Invitation** — while the app is open inside the greeting window (and consent, quiet hours, cap,
-   pause and designated device all allow it), Home offers a respectful “现在想聊聊天吗？” card:
-   **聊一会儿** opens a proactive session and plays the greeting; **今天不用** records the dismissal
-   and does not ask again today. Background OS notifications are a documented limitation.
-3. **Talk** — `POST /sessions` opens a consented conversation; the mic indicator turns on, captions
-   appear as you speak or type. Say “我今天吃了面条” → a short reply. Say “再说一遍” → the same
-   answer. Tap **Stop** → the session ends immediately and late replies are discarded.
-4. **Play** — “玩个游戏吧” (or the Play button) launches a trivia/story/memory activity from the
-   curated pack; rotation never repeats until all items have been shown.
-5. **Call** — “给儿子打电话” asks for one confirmation, then opens the system dialer with the saved
-   contact; “Call to check in” on the caregiver digest points at the same saved number.
-6. **Settings → Sharing topics** — every topic starts private. Toggle one, preview the weekly digest,
-   edit a line, and approve it. The caregiver sees only the approved, permitted highlights.
-7. **Caregiver mode** — invitation acceptance (invite → accept → senior approves), the weekly digest
-   (≤ 3 supported highlights + Call to check in), and a proposed check-in schedule the senior must
-   approve.
-8. **Revoke / delete** — revoke access: every caregiver read returns 403 and unsent digests are
-   cancelled. Delete my data: conversations, observations, memories and digests are removed and the
-   consent version is bumped.
+All of it happens on the phone app now. The computer has no settings screen.
 
-Screenshots of the running desktop app are in `docs/img/` (login, home, invitation window, talk, play,
-call, settings incl. sharing topics, caregiver home, caregiver digest). They were captured from the
-built executable against the live backend, not mocked.
+Chat uses an OpenAI-compatible endpoint. We run `deepseek-flash` at `https://api.deepseek.com` because it answers in about two seconds and the account exposes it.
 
-## Repository docs
+Speech to text uses an OpenAI-compatible `/audio/transcriptions` endpoint. We use `Qwen/Qwen3-ASR-1.7B` on SiliconFlow: 0.52 to 0.65 seconds for a five-second clip in our measurements, against 2.9 seconds for the SenseVoice model we started with and occasional spikes past fifteen seconds. If your network prefers a different vendor, any compatible endpoint works; the adapter is one file.
 
-| File | Purpose |
+Voice output goes through Microsoft's Edge neural voices via `edge-tts`. It is a public endpoint with no contract behind it. When it fails, the app falls back to the Windows system voice, logs that it did, and marks the attempt as degraded instead of pretending the good voice worked.
+
+Keys live in `backend/data/anchor.db` on the computer, masked in API responses, never logged.
+
+## Tests
+
+```powershell
+.\ .venv\Scripts\Activate.ps1
+python -m pytest backend\tests -q        # 399 backend tests
+powershell -File scripts/verify.ps1      # backend tests, dart format, flutter analyze, 286 Flutter tests
+```
+
+Both are green right now. The Flutter tests run from an ASCII mirror (`%LOCALAPPDATA%\anchor-build\mobile`) because the repository path contains characters that crash the Dart analysis server on this machine; `scripts/verify.ps1` handles the sync.
+
+Green tests are not the same as a working product. We learned that the hard way: 286 tests passed while the audio path was silently broken, because no test can hear a speaker.
+
+## Where to look
+
+| File | What is in it |
 |---|---|
-| `SPEC.md` | frozen engineering contract (schema, API, consent rules, acceptance matrix) |
-| `BUILD_PLAN.md` | milestone ledger + progress log with evidence per milestone |
-| `DECISIONS.md` | append-only engineering decisions |
-| `docs/setup.md` | providers, DB, worker recovery, retention/deletion, device setup |
-| `docs/acceptance-checklist.md` | every §8/§9 item mapped to evidence or explicitly MANUAL |
-| `docs/measurement.md` | pilot protocol for the manual rows |
-| `docs/limitations.md` | honest list of what is not measured or not built |
+| `SPEC.md` | the engineering contract, still the reference for endpoints and invariants |
+| `BUILD_PLAN.md` | milestone ledger |
+| `docs/limitations.md` | what is measured and what is not, written to be uncomfortable |
+| `docs/handover.md` | how the two-device split works, and the weekly report work still open |
+| `docs/design/senior-ui.md` | the senior interface design: colours, type, layout, motion |
+| `docs/acceptance-checklist.md` | manual checks before a demo |
+| `docs/measurement.md` | the pilot protocol |
 
-## Verify
+## Known limits
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1
-```
+This is a course deliverable, not a shipped medical product. There is no TLS anywhere, login is a dev endpoint that takes a user id, the APK is debug-signed and about 150 MB, and the weekly report does not yet have a generate endpoint or a caregiver inbox in the app. `docs/handover.md` section 6 lists all fourteen, including the ones that will bite during a live demo.
 
-Runs the backend test suite (including the eight required failure tests), `dart format`,
-`flutter analyze`, `flutter test`, the Windows build, and the seed check. It must exit 0 before
-anything is called complete. `docs/acceptance-checklist.md` maps every acceptance item to evidence.
+## Team
 
-## Honest limitations (short version)
-
-No user study is included: naturalness, WER, unaided completion, digest quality and family-contact
-rates are **not measured** — `docs/measurement.md` is the protocol, `docs/limitations.md` is the
-disclosure. The speech adapter is replaceable but unevaluated with older-adult Mandarin; text
-fallback is not the speech target; session credentials are in-memory; background OS notifications
-are only partially wired on desktop; the demo form is a Windows laptop, not the target device.
-
-## Demo environment note
-
-The vault path contains non-ASCII characters, which crashes CMake 4.x and the Dart analysis server.
-`scripts/build_windows.ps1` and `scripts/verify.ps1` therefore build and test from an ASCII mirror in
-`%LOCALAPPDATA%\anchor-build\mobile`. This is a build workaround, not a product constraint — the
-shipped source is the same.
+Built for TA5 of 1907 Design Thinking for Healthcare Innovation. Workflow notes are in `CONTRIBUTING.md`; the repo is public and `main` is integration-owned.

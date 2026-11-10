@@ -64,7 +64,12 @@ void main() {
     // The home page no longer has a Play tile (activities live inside the
     // conversation now), so the screen is pushed directly.
     await state.signInDemo(1);
-    await tester.pumpWidget(MaterialApp(theme: AnchorTheme.build(), home: ActivityScreen(state: state)));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AnchorTheme.build(),
+        home: ActivityScreen(state: state),
+      ),
+    );
     await settle(tester);
   }
 
@@ -249,7 +254,12 @@ void main() {
       addTearDown(tester.view.reset);
       tester.platformDispatcher.textScaleFactorTestValue = 1.3;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await tester.pumpWidget(MaterialApp(theme: AnchorTheme.build(), home: ActivityScreen(state: state)));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AnchorTheme.build(),
+          home: ActivityScreen(state: state),
+        ),
+      );
       await settle(tester);
       expect(tester.takeException(), isNull);
 

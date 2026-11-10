@@ -69,12 +69,9 @@ class JustAudioSpeechPlayer implements SpeechAudioPlayer {
     // An error that arrives after the speaker gave up on this utterance (the
     // timeout) would otherwise surface as an unhandled async error.
     _finished.future.ignore();
-    _stateSubscription = _player.processingStateStream.listen(
-      (state) {
-        if (state == ProcessingState.completed) _finish();
-      },
-      onError: (Object error) => _finish(error),
-    );
+    _stateSubscription = _player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) _finish();
+    }, onError: (Object error) => _finish(error));
   }
 
   final AudioPlayer _player;
@@ -383,7 +380,9 @@ class AndroidTtsSpeaker implements Speaker {
     if (failure != null) {
       // 200 OK but nothing came out of the speaker must not pass for spoken.
       _failed = true;
-      debugPrint('Neural voice did not play; falling back to the device voice.');
+      debugPrint(
+        'Neural voice did not play; falling back to the device voice.',
+      );
       await _speakWithDeviceVoice(
         text,
         language: language,

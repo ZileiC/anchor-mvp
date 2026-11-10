@@ -141,7 +141,6 @@ void main() {
       expect(size.width, greaterThanOrEqualTo(56), reason: '$key width');
     }
 
-
     await disposeApp(tester);
   });
 
