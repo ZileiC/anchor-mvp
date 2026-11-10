@@ -357,6 +357,33 @@ class ApiClient {
     throw _errorFrom(response.statusCode, response.body);
   }
 
+  /// `POST /transcribe`: one recorded clip → the words that were said.
+  ///
+  /// Same JSON plumbing, bearer token and error mapping as every other method:
+  /// a 503 (`provider_unavailable`) means no working recogniser right now and a
+  /// 422 (`validation_error`) that the clip was unusable. [audioMime] defaults to
+  /// `audio/wav` because that is the one format the microphone seam records, so
+  /// the request always matches the fixed contract.
+  ///
+  /// The transcript is returned exactly as recognised (trimmed). Nothing is
+  /// invented when the server sends no text: the caller gets an empty string and
+  /// must treat that as "not heard".
+  Future<String> transcribe({
+    required String audioB64,
+    String? audioMime,
+  }) async {
+    final mime = (audioMime ?? '').trim();
+    final payload = await _send(
+      'POST',
+      '/transcribe',
+      body: <String, Object?>{
+        'audio_b64': audioB64,
+        'audio_mime': mime.isEmpty ? 'audio/wav' : mime,
+      },
+    );
+    return asString(asMap(payload)['text']).trim();
+  }
+
   // -- invitations and family links ---------------------------------------
   Future<InvitationToken> createInvitation({int expiresInHours = 24}) async {
     final payload = await _send(

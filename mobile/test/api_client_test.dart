@@ -447,6 +447,109 @@ void main() {
     });
   });
 
+  group('transcribe', () {
+    test('POST /transcribe sends the clip and returns the words', () async {
+      String? sentMethod;
+      Uri? sentUrl;
+      String? sentBody;
+      String? sentAuth;
+      final api = stubApi((method, url, headers, body) async {
+        sentMethod = method;
+        sentUrl = url;
+        sentBody = body;
+        sentAuth = headers['Authorization'];
+        return jsonResponse(<String, Object?>{
+          'text': ' 十二 ',
+          'provider': 'siliconflow',
+        });
+      }, token: 'tok');
+
+      final text = await api.transcribe(
+        audioB64: 'UklGRg==',
+        audioMime: 'audio/wav',
+      );
+
+      expect(sentMethod, 'POST');
+      expect(sentUrl.toString(), 'http://127.0.0.1:8077/api/v1/transcribe');
+      expect(sentAuth, 'Bearer tok');
+      expect(jsonDecode(sentBody!), <String, Object?>{
+        'audio_b64': 'UklGRg==',
+        'audio_mime': 'audio/wav',
+      });
+      expect(text, '十二');
+    });
+
+    test('the mime type defaults to audio/wav, the contract value', () async {
+      String? sentBody;
+      final api = stubApi((method, url, headers, body) async {
+        sentBody = body;
+        return jsonResponse(<String, Object?>{'text': '好'});
+      }, token: 'tok');
+
+      await api.transcribe(audioB64: 'UklGRg==');
+
+      expect(jsonDecode(sentBody!), <String, Object?>{
+        'audio_b64': 'UklGRg==',
+        'audio_mime': 'audio/wav',
+      });
+    });
+
+    test('a 503 keeps the provider_unavailable envelope', () async {
+      final api = stubApi((method, url, headers, body) async {
+        return errorResponse(
+          'provider_unavailable',
+          'Speech recognition is not available',
+          status: 503,
+          extra: <String, Object?>{
+            'recovery': <Object?>['retry', 'type_instead'],
+          },
+        );
+      }, token: 'tok');
+
+      await expectLater(
+        api.transcribe(audioB64: 'UklGRg=='),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'provider_unavailable')
+              .having((e) => e.statusCode, 'status', 503)
+              .having((e) => e.recovery, 'recovery', contains('retry')),
+        ),
+      );
+    });
+
+    test('a 422 is a validation error, not a transcript', () async {
+      final api = stubApi((method, url, headers, body) async {
+        return errorResponse(
+          'validation_error',
+          'Unreadable audio',
+          status: 422,
+        );
+      }, token: 'tok');
+
+      await expectLater(
+        api.transcribe(audioB64: 'not-wav'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'validation_error')
+              .having((e) => e.statusCode, 'status', 422),
+        ),
+      );
+    });
+
+    test(
+      'a 200 without text is an empty transcript, never invented words',
+      () async {
+        final api = stubApi(
+          (method, url, headers, body) async =>
+              jsonResponse(<String, Object?>{}),
+          token: 'tok',
+        );
+
+        expect(await api.transcribe(audioB64: 'UklGRg=='), isEmpty);
+      },
+    );
+  });
+
   group('request nonce', () {
     test('a reply that arrives after Stop is discarded', () async {
       final completer = Completer<TransportResponse>();

@@ -81,8 +81,9 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     final asrBase = status.asr.baseUrl ?? '';
     _asrBase.text = asrBase.isEmpty ? 'https://api.siliconflow.cn/v1' : asrBase;
     final asrModel = status.asr.model;
-    _asrModel.text =
-        asrModel.isEmpty ? 'FunAudioLLM/SenseVoiceSmall' : asrModel;
+    _asrModel.text = asrModel.isEmpty
+        ? 'Qwen/Qwen3-ASR-1.7B'
+        : asrModel;
   }
 
   String? _trim(String value) {
@@ -120,7 +121,7 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
   void _applyAsrPreset() {
     setState(() {
       _asrBase.text = 'https://api.siliconflow.cn/v1';
-      _asrModel.text = 'FunAudioLLM/SenseVoiceSmall';
+      _asrModel.text = 'Qwen/Qwen3-ASR-1.7B';
       _asrTestMessage = null;
       _asrTestFailed = false;
     });

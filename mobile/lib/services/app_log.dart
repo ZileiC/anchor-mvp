@@ -27,15 +27,14 @@ class AppLog {
   static AppLog? install({Directory? directory}) {
     if (_instance != null) return _instance;
     try {
-      final base = directory ??
+      final base =
+          directory ??
           Directory(
             '${Platform.environment['LOCALAPPDATA'] ?? Directory.systemTemp.path}'
             '${Platform.pathSeparator}Anchor',
           );
       base.createSync(recursive: true);
-      final file = File(
-        '${base.path}${Platform.pathSeparator}anchor_app.log',
-      );
+      final file = File('${base.path}${Platform.pathSeparator}anchor_app.log');
       if (file.existsSync() && file.lengthSync() > _maxBytes) file.deleteSync();
       final log = AppLog(file: file);
       _instance = log;

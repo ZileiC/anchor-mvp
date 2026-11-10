@@ -30,6 +30,7 @@ class AppState extends ChangeNotifier {
     InvitationController? invitationController,
     Duration invitationInterval = const Duration(seconds: 60),
     this.probeDuration = const Duration(seconds: 3),
+    this.answerDuration = const Duration(seconds: 4),
   }) : credentials = credentials ?? CredentialStore(),
        _now = now ?? DateTime.now {
     invitations =
@@ -53,6 +54,14 @@ class AppState extends ChangeNotifier {
 
   /// How long the Settings screen records when the user tests the microphone.
   final Duration probeDuration;
+
+  /// How long one Play voice answer listens before it stops by itself.
+  ///
+  /// The card asks for one short answer, so the tap needs no second "done"
+  /// gesture: four seconds is enough to react and say a few syllables, and short
+  /// enough that a silent room does not feel stuck. The senior can always tap the
+  /// voice button again (or tap an option) when it was too short.
+  final Duration answerDuration;
 
   /// Foreground proactive invitations (SPEC §6.2). Owned here so the loop lives
   /// with the app, not with a screen; Home only reports whether it is visible.
@@ -96,6 +105,15 @@ class AppState extends ChangeNotifier {
   bool micUnavailable = false;
   bool micFailed = false;
   bool sendingTurn = false;
+
+  /// True while [listenForAnswer] is capturing, so a double tap on Play's voice
+  /// button can never start a second recording on top of the first.
+  bool _answerListening = false;
+
+  /// Invalidates an in-flight Play voice answer: Stop, a tap on an option, a new
+  /// card and leaving the screen all bump this, so a clip that finishes late is
+  /// thrown away instead of grading the wrong card.
+  int _answerTicket = 0;
 
   /// The request that failed and can be retried without retyping (503 recovery).
   _PendingTurn? _pendingTurn;
@@ -870,6 +888,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> cancelRecording() async {
+    _answerTicket++; // drops a Play voice answer that is still in flight
     recording = false;
     await microphone.cancel();
     notifyListeners();
@@ -881,6 +900,8 @@ class AppState extends ChangeNotifier {
   /// and can never re-open the conversation (SPEC §9, failure_stop_late_output).
   Future<void> stopAll() async {
     api.nonce.bump();
+    // Any Play voice answer still being recorded or transcribed is now stale.
+    _answerTicket++;
     recording = false;
     sendingTurn = false;
     captions = <Caption>[];
@@ -906,6 +927,97 @@ class AppState extends ChangeNotifier {
   }
 
   // -- activities ----------------------------------------------------------
+  /// Records ONE short answer for Play and returns what was said.
+  ///
+  /// This is deliberately not a conversation: it never opens a session, never
+  /// speaks, and never touches captions — the card is already open on screen.
+  /// It uses the *same* microphone gate and the *same* error state as Talk
+  /// ([micUnavailable], [micFailed], [lastError]), so a broken headset degrades
+  /// in one place instead of two.
+  ///
+  /// Returns the recogniser's own words, or null when there is no usable device,
+  /// nothing usable was captured, no recogniser is configured, the request failed
+  /// (503 / 422, reported through [lastError]) or the answer was cancelled. The
+  /// screen decides what a transcript means; nothing is invented here.
+  ///
+  /// [onRecordingComplete] fires after the microphone is closed and before the
+  /// server is asked, which is what lets the screen show its "working" state.
+  Future<String?> listenForAnswer({
+    void Function()? onRecordingComplete,
+  }) async {
+    // One recording at a time: a second tap must not stack two capture streams.
+    if (_answerListening) return null;
+    // Without a real recogniser the server would refuse the clip anyway, so the
+    // microphone is never opened just to fail. The screen explains this instead.
+    if (!asrConfigured) {
+      debugPrint('Voice answer skipped: no speech recogniser configured.');
+      return null;
+    }
+    _answerListening = true;
+    final ticket = ++_answerTicket;
+    var capturedAudio = false;
+    try {
+      // An earlier failure is not permanent (the headset may have reconnected),
+      // so every attempt really tries again — exactly like Talk's mic button.
+      micFailed = false;
+      await microphone.startRecording();
+      recording = true;
+      micUnavailable = false;
+      notifyListeners();
+      if (answerDuration > Duration.zero) {
+        await Future<void>.delayed(answerDuration);
+      }
+      final audio = await microphone.stopRecording();
+      recording = false;
+      if (ticket != _answerTicket) return null; // cancelled while recording
+      notifyListeners();
+      if (audio == null || audio.base64.trim().isEmpty) {
+        // The device opened but nothing usable came back: report "nothing heard",
+        // never a made-up transcript and never "the microphone is unavailable".
+        micFailed = true;
+        debugPrint('Voice answer captured no audio.');
+        notifyListeners();
+        return null;
+      }
+      capturedAudio = true;
+      onRecordingComplete?.call();
+      final text = await api.transcribe(
+        audioB64: audio.base64,
+        audioMime: audio.mimeType,
+      );
+      if (ticket != _answerTicket) return null; // cancelled while transcribing
+      final words = text.trim();
+      if (words.isEmpty) return null;
+      lastError = null;
+      notifyListeners();
+      return words;
+    } on MicrophoneUnavailable catch (error) {
+      recording = false;
+      micFailed = true;
+      micUnavailable = true;
+      debugPrint('Voice answer microphone unavailable: ${error.reason}');
+      notifyListeners();
+      return null;
+    } on ApiCancelled {
+      // Stop won the race: the transcript is dropped, nothing is graded.
+      return null;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return null;
+    } catch (error) {
+      recording = false;
+      if (!capturedAudio) micFailed = true;
+      debugPrint('Voice answer failed: $error');
+      notifyListeners();
+      return null;
+    } finally {
+      _answerListening = false;
+      recording = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> finishActivity({
     required String activityId,
     required bool completed,

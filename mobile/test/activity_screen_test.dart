@@ -85,6 +85,10 @@ void main() {
       final state = buildTestState(api);
       await openPlay(tester, state);
 
+      // The card reads its own title and question when it opens.
+      final question = '一年有几个月\n一年有多少个月呀？';
+      expect(speakerOf(state).spoken, <String>[question]);
+
       // No countdown, no urgency text, no timer icon.
       expect(find.byKey(const Key('activity-timer')), findsNothing);
       expect(find.byIcon(Icons.timer_outlined), findsNothing);
@@ -95,12 +99,12 @@ void main() {
       final sentence = '${L.zh.activityCorrect}\n一年有十二个月。';
       expect(find.text(sentence), findsOneWidget);
       expect(feedbackFill(tester), const Color(0xFFE3EFE6));
-      expect(speakerOf(state).spoken, <String>[sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
 
       // The card is answered: another tap changes nothing and says nothing.
       await tapOption(tester, 0, warnIfMissed: false);
       expect(find.text(sentence), findsOneWidget);
-      expect(speakerOf(state).spoken, <String>[sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
 
       await disposeApp(tester);
     });
@@ -112,6 +116,7 @@ void main() {
       final state = buildTestState(api);
       await openPlay(tester, state);
 
+      final question = '一年有几个月\n一年有多少个月呀？';
       await tapOption(tester, 0);
 
       final sentence =
@@ -147,11 +152,11 @@ void main() {
         }),
         const Color(0xFFE3EFE6),
       );
-      expect(speakerOf(state).spoken, <String>[sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
 
       // Locked, and never the word "错".
       await tapOption(tester, 2, warnIfMissed: false);
-      expect(speakerOf(state).spoken, <String>[sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
       expect(find.textContaining('错'), findsNothing);
 
       await disposeApp(tester);
@@ -164,6 +169,7 @@ void main() {
       final state = buildTestState(api);
       await openPlay(tester, state);
 
+      final question = '记一记\n记住这三样：茶杯、钥匙、毛巾。';
       await tapOption(tester, 1);
 
       final sentence = '${L.zh.activityThanks}\n钥匙在门口的小盘子里。';
@@ -171,10 +177,10 @@ void main() {
       expect(feedbackFill(tester), const Color(0xFFF4EFE5));
       expect(find.textContaining(L.zh.activityCorrect), findsNothing);
       expect(find.textContaining(L.zh.activityWrong), findsNothing);
-      expect(speakerOf(state).spoken, <String>[sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
 
       await tapOption(tester, 2, warnIfMissed: false);
-      expect(speakerOf(state).spoken, <String>[sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
 
       await disposeApp(tester);
     });
@@ -189,7 +195,9 @@ void main() {
       expect(find.byKey(const Key('activity-story')), findsOneWidget);
       expect(find.text(story.story!), findsOneWidget);
       expect(find.text(L.zh.activityListen), findsOneWidget);
-      expect(speakerOf(state).spoken, <String>[story.story!]);
+      // A story card reads the story first, then asks its question.
+      final question = '${story.story!}\n${story.prompt}';
+      expect(speakerOf(state).spoken, <String>[question]);
 
       await tapOption(tester, 1);
       final sentence =
@@ -197,7 +205,7 @@ void main() {
           '在树下乘凉，是很安静的夏天。\n'
           '${L.zh.activityAnswerWas('在树下乘凉')}';
       expect(find.text(sentence), findsOneWidget);
-      expect(speakerOf(state).spoken, <String>[story.story!, sentence]);
+      expect(speakerOf(state).spoken, <String>[question, sentence]);
 
       await disposeApp(tester);
     });
@@ -220,7 +228,8 @@ void main() {
 
       // The next card is the story in the rotation: it reads itself, then takes
       // its own answer.
-      expect(speakerOf(state).spoken.last, threeActivityFeed().items[1].story);
+      final next = threeActivityFeed().items[1];
+      expect(speakerOf(state).spoken.last, '${next.story}\n${next.prompt}');
       await tapOption(tester, 0);
       expect(find.byKey(const Key('activity-feedback')), findsOneWidget);
 

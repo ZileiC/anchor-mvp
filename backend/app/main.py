@@ -13,6 +13,7 @@ from .db import Database
 from .errors import install_error_handlers
 from .api import (
     activities,
+    asr,
     auth_routes,
     checkins,
     consents,
@@ -37,6 +38,7 @@ ROUTERS = (
     health,
     auth_routes,
     providers,
+    asr,
     relationships,
     consents,
     preferences,

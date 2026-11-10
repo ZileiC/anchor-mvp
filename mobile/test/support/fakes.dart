@@ -125,6 +125,35 @@ class FakeApi extends ApiClient {
   String? lastTurnAudioB64;
   ApiException? turnError;
 
+  // -- Play voice answers --------------------------------------------------
+  /// What the fake recogniser returns for the next clip.
+  String transcript = '';
+
+  /// When set, `transcribe` waits for it before answering — lets a test sit in
+  /// the screen's "working" state.
+  Completer<void>? transcribeGate;
+
+  /// When set, `transcribe` fails the way a dead recogniser does.
+  ApiException? transcribeError;
+  int transcribeCalls = 0;
+  String? lastTranscribeAudioB64;
+  String? lastTranscribeAudioMime;
+
+  @override
+  Future<String> transcribe({
+    required String audioB64,
+    String? audioMime,
+  }) async {
+    transcribeCalls++;
+    lastTranscribeAudioB64 = audioB64;
+    lastTranscribeAudioMime = audioMime;
+    final gate = transcribeGate;
+    if (gate != null) await gate.future;
+    if (offline) throw offlineError;
+    if (transcribeError != null) throw transcribeError!;
+    return transcript;
+  }
+
   ApiException get offlineError => const ApiException(
     code: 'offline',
     message: 'no connection',
@@ -617,6 +646,7 @@ AppState buildTestState(
   DateTime Function()? now,
   MicrophoneInput? microphone,
   Duration probeDuration = Duration.zero,
+  Duration answerDuration = Duration.zero,
 }) {
   final clock = now ?? (() => DateTime.utc(2026, 3, 10, 1, 30));
   return AppState(
@@ -626,6 +656,7 @@ AppState buildTestState(
     dialer: dialer ?? FakeDialer(),
     now: clock,
     probeDuration: probeDuration,
+    answerDuration: answerDuration,
     invitationController:
         invitationController ??
         InvitationController(

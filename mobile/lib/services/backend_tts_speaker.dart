@@ -528,11 +528,7 @@ exit 0
   /// Deletes [file] once its playback has ended (or the child has exited).
   /// [files] is the utterance's live set, so the final sweep never deletes a
   /// file that a later sentence still needs.
-  void _deleteAfterPlayback(
-    Future<void> played,
-    File file,
-    Set<File> files,
-  ) {
+  void _deleteAfterPlayback(Future<void> played, File file, Set<File> files) {
     unawaited(
       played.then(
         (void _) async {

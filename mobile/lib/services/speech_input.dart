@@ -184,7 +184,6 @@ class RecordMicrophoneInput implements MicrophoneInput {
     }
   }
 
-
   @override
   Future<RecordedAudio?> stopRecording() async {
     final path = _path;
@@ -203,7 +202,9 @@ class RecordMicrophoneInput implements MicrophoneInput {
       // The peak separates "the person spoke" from "the input is muted": it is
       // measured on the samples only, never stored, so no audio is kept.
       if (bytes.isEmpty) {
-        debugPrint('Microphone captured 0 bytes (device opened but wrote nothing)');
+        debugPrint(
+          'Microphone captured 0 bytes (device opened but wrote nothing)',
+        );
         return null;
       }
       debugPrint(

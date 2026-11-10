@@ -156,6 +156,31 @@ class L {
     '还没有下载过活动，等能上网时再来。',
     'No saved activities yet. Come back when the connection is available.',
   );
+  // Reading a card aloud and answering it out loud: the question can be repeated
+  // and the answer can be said instead of tapped.
+  String get activityRepeatQuestion => t('再念一遍', 'Read it again');
+  String get activityVoiceAnswer => t('说出答案', 'Say the answer');
+  String get activityVoiceListening => t('我在听…', 'I am listening…');
+  String get activityVoiceWorking => t('稍等一下…', 'One moment…');
+  String activityVoiceHeard(String words) => t('我听到：$words', 'I heard: $words');
+  // Heard something, but it fitted no option.
+  String get activityVoiceMissed => t('没听清', 'I did not catch that');
+  String get activityVoiceMissedHint =>
+      t('再说一次，或者直接点一下选项。', 'Say it again, or tap an option.');
+  String get activityVoiceMissedSpoken => t(
+    '没听清，再说一次，或者直接点一下选项。',
+    'I did not catch that. Say it again, or tap an option.',
+  );
+  // Nothing usable arrived at all (no device, silence, or no recogniser).
+  String get activityVoiceNothing => t('没听到声音', 'I did not hear anything');
+  String get activityVoiceNothingHint =>
+      t('点一下选项也一样。', 'Tapping an option works the same.');
+  String get activityVoiceNothingSpoken => t(
+    '没听到声音，点一下选项也一样。',
+    'I did not hear anything. You can tap an option instead.',
+  );
+  String get activityVoiceNotReady =>
+      t('语音还没接上，可以先点选项。', 'Voice is not connected yet. You can tap an option.');
 
   // -- call -----------------------------------------------------------------
   String get callTitle => t('打电话', 'Call');
@@ -289,12 +314,14 @@ class L {
       t('留空 = 保持已保存的密钥', 'Leave blank to keep the saved key');
   String aiSavedKeyHint(String hint) => t('已保存密钥：$hint', 'Saved key: $hint');
   String get aiDeepSeekPreset => t('填入 DeepSeek 预设', 'Fill in DeepSeek preset');
-  String get aiDeepSeekPresetHint =>
-      t('api.deepseek.com · deepseek-flash', 'api.deepseek.com · deepseek-flash');
+  String get aiDeepSeekPresetHint => t(
+    'api.deepseek.com · deepseek-flash',
+    'api.deepseek.com · deepseek-flash',
+  );
   String get aiAsrPreset => t('填入硅基流动预设', 'Fill in SiliconFlow preset');
   String get aiAsrPresetHint => t(
-    'api.siliconflow.cn · SenseVoiceSmall',
-    'api.siliconflow.cn · SenseVoiceSmall',
+    'api.siliconflow.cn · Qwen3-ASR',
+    'api.siliconflow.cn · Qwen3-ASR',
   );
   String get aiStatusLine => t('状态', 'Status');
   String get aiStatusHttp => t('已接入 · http', 'Connected · http');

@@ -251,19 +251,13 @@ void main() {
     // Every test must leave %TEMP% clean. Give a per-item delete that was
     // still in flight a moment, then fail loudly instead of hiding a leak
     // behind the directory teardown.
-    List<File> leftovers() => tempDirectory
-        .listSync()
-        .whereType<File>()
-        .toList(growable: false);
+    List<File> leftovers() =>
+        tempDirectory.listSync().whereType<File>().toList(growable: false);
     final deadline = DateTime.now().add(const Duration(seconds: 2));
     while (leftovers().isNotEmpty && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
-    expect(
-      leftovers(),
-      isEmpty,
-      reason: 'this test leaked a temp mp3 behind',
-    );
+    expect(leftovers(), isEmpty, reason: 'this test leaked a temp mp3 behind');
     for (var attempt = 0; attempt < 20; attempt++) {
       try {
         if (!tempDirectory.existsSync()) return;
@@ -285,7 +279,9 @@ void main() {
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (!condition()) {
       if (DateTime.now().isAfter(deadline)) {
-        fail('condition still false after 5 s${reason == null ? '' : ': $reason'}');
+        fail(
+          'condition still false after 5 s${reason == null ? '' : ': $reason'}',
+        );
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
@@ -321,26 +317,19 @@ void main() {
       <String>['第一句话已经足够长了。', '第二句话也已经足够长了！'],
       reason: 'each terminator stays on the sentence it closes',
     );
-    expect(
-      BackendTtsSpeaker.splitSentences('好。今天想出去走走吗？'),
-      <String>['好。今天想出去走走吗？'],
-      reason: 'a 2-character fragment must not become its own TTS request',
-    );
-    expect(
-      BackendTtsSpeaker.splitSentences('今天天气非常好。好的。'),
-      <String>['今天天气非常好。好的。'],
-      reason: 'a short last fragment is merged backwards',
-    );
-    expect(
-      BackendTtsSpeaker.splitSentences('这是一段没有句号的文字'),
-      <String>['这是一段没有句号的文字'],
-      reason: 'no punctuation means one sentence, never a word-by-word split',
-    );
-    expect(
-      BackendTtsSpeaker.splitSentences('第一句话在这里。\n第二句话在这里。'),
-      <String>['第一句话在这里。', '第二句话在这里。'],
-      reason: 'newlines end a sentence and are not spoken',
-    );
+    expect(BackendTtsSpeaker.splitSentences('好。今天想出去走走吗？'), <String>[
+      '好。今天想出去走走吗？',
+    ], reason: 'a 2-character fragment must not become its own TTS request');
+    expect(BackendTtsSpeaker.splitSentences('今天天气非常好。好的。'), <String>[
+      '今天天气非常好。好的。',
+    ], reason: 'a short last fragment is merged backwards');
+    expect(BackendTtsSpeaker.splitSentences('这是一段没有句号的文字'), <String>[
+      '这是一段没有句号的文字',
+    ], reason: 'no punctuation means one sentence, never a word-by-word split');
+    expect(BackendTtsSpeaker.splitSentences('第一句话在这里。\n第二句话在这里。'), <String>[
+      '第一句话在这里。',
+      '第二句话在这里。',
+    ], reason: 'newlines end a sentence and are not spoken');
     expect(
       BackendTtsSpeaker.splitSentences('第一句话已经足够长了。\n\n   \n第二句话也已经足够长了。'),
       <String>['第一句话已经足够长了。', '第二句话也已经足够长了。'],
@@ -378,11 +367,23 @@ void main() {
       final script = arguments.last;
       expect(script, contains('Add-Type -AssemblyName PresentationCore'));
       expect(script, contains('System.Windows.Media.MediaPlayer'));
-      expect(script, contains('ReadLine'), reason: 'the queue comes from stdin');
-      expect(script, contains("'$ttsPlayerEndMarker'"), reason: 'EOF ends the queue');
+      expect(
+        script,
+        contains('ReadLine'),
+        reason: 'the queue comes from stdin',
+      );
+      expect(
+        script,
+        contains("'$ttsPlayerEndMarker'"),
+        reason: 'EOF ends the queue',
+      );
       expect(script, contains('FromBase64String'));
       expect(script, contains('NaturalDuration'));
-      expect(script, contains(r'$player.Position'), reason: 'polls the position');
+      expect(
+        script,
+        contains(r'$player.Position'),
+        reason: 'polls the position',
+      );
       expect(
         script,
         contains("'$ttsPlayerPlayMarker'"),
@@ -428,74 +429,81 @@ void main() {
       await drainCleanup();
     });
 
-    test('fetches the next sentence while the previous one is still playing',
-        () async {
-      const text =
-          '第一句话已经足够长了。第二句话也已经足够长了！第三句话同样非常足够长？';
-      final api = FakeTtsApi()..delay = const Duration(milliseconds: 30);
-      final launcher = FakePlaybackLauncher();
-      final speaker = BackendTtsSpeaker(
-        api: api,
-        launcher: launcher,
-        tempDirectory: tempDirectory,
-      );
+    test(
+      'fetches the next sentence while the previous one is still playing',
+      () async {
+        const text = '第一句话已经足够长了。第二句话也已经足够长了！第三句话同样非常足够长？';
+        final api = FakeTtsApi()..delay = const Duration(milliseconds: 30);
+        final launcher = FakePlaybackLauncher();
+        final speaker = BackendTtsSpeaker(
+          api: api,
+          launcher: launcher,
+          tempDirectory: tempDirectory,
+        );
 
-      await speaker.speak(text);
-      final player = launcher.session;
-      // Sentence 2 is fetched and queued while sentence 1 is still playing.
-      await waitUntil(() => player.paths.length >= 2);
-      expect(
-        player.finishedAt,
-        isEmpty,
-        reason: 'a fetch must not wait for the previous playback to end',
-      );
-      // Both queued files are on disk, each still needed.
-      expect(tempFiles(), hasLength(2));
-      final secondFetchStartedAt = api.fetches[1].startedAt;
-      player.finishItem(0);
-      expect(
-        secondFetchStartedAt.isBefore(player.finishedAt.single),
-        isTrue,
-        reason: 'fetch 2 began before playback 1 finished',
-      );
-      expect(launcher.startCount, 1, reason: 'the child is reused per sentence');
-      expect(api.calls, greaterThanOrEqualTo(2));
+        await speaker.speak(text);
+        final player = launcher.session;
+        // Sentence 2 is fetched and queued while sentence 1 is still playing.
+        await waitUntil(() => player.paths.length >= 2);
+        expect(
+          player.finishedAt,
+          isEmpty,
+          reason: 'a fetch must not wait for the previous playback to end',
+        );
+        // Both queued files are on disk, each still needed.
+        expect(tempFiles(), hasLength(2));
+        final secondFetchStartedAt = api.fetches[1].startedAt;
+        player.finishItem(0);
+        expect(
+          secondFetchStartedAt.isBefore(player.finishedAt.single),
+          isTrue,
+          reason: 'fetch 2 began before playback 1 finished',
+        );
+        expect(
+          launcher.startCount,
+          1,
+          reason: 'the child is reused per sentence',
+        );
+        expect(api.calls, greaterThanOrEqualTo(2));
 
-      await playEverything(player);
-      await drainCleanup();
-      expect(player.paths, hasLength(3));
-      expect(tempFiles(), isEmpty);
-    });
+        await playEverything(player);
+        await drainCleanup();
+        expect(player.paths, hasLength(3));
+        expect(tempFiles(), isEmpty);
+      },
+    );
 
-    test('deletes each mp3 as soon as its sentence has finished playing',
-        () async {
-      const text = '第一句话已经足够长了。第二句话也已经足够长了。';
-      final api = FakeTtsApi();
-      final launcher = FakePlaybackLauncher();
-      final speaker = BackendTtsSpeaker(
-        api: api,
-        launcher: launcher,
-        tempDirectory: tempDirectory,
-      );
+    test(
+      'deletes each mp3 as soon as its sentence has finished playing',
+      () async {
+        const text = '第一句话已经足够长了。第二句话也已经足够长了。';
+        final api = FakeTtsApi();
+        final launcher = FakePlaybackLauncher();
+        final speaker = BackendTtsSpeaker(
+          api: api,
+          launcher: launcher,
+          tempDirectory: tempDirectory,
+        );
 
-      await speaker.speak(text);
-      final player = launcher.session;
-      await waitUntil(() => player.paths.length == 2);
-      expect(tempFiles(), hasLength(2));
+        await speaker.speak(text);
+        final player = launcher.session;
+        await waitUntil(() => player.paths.length == 2);
+        expect(tempFiles(), hasLength(2));
 
-      player.finishItem(0);
-      await waitUntil(() => tempFiles().length == 1);
-      expect(
-        player.running,
-        isTrue,
-        reason: 'sentence 2 still needs its file; the child is still playing',
-      );
+        player.finishItem(0);
+        await waitUntil(() => tempFiles().length == 1);
+        expect(
+          player.running,
+          isTrue,
+          reason: 'sentence 2 still needs its file; the child is still playing',
+        );
 
-      player.finishItem(1);
-      await waitUntil(() => !player.running);
-      await drainCleanup();
-      expect(tempFiles(), isEmpty);
-    });
+        player.finishItem(1);
+        await waitUntil(() => !player.running);
+        await drainCleanup();
+        expect(tempFiles(), isEmpty);
+      },
+    );
 
     test('logs time to first audio and per-sentence fetch times', () async {
       const text = '第一句话已经足够长了。第二句话也已经足够长了。';
@@ -537,80 +545,95 @@ void main() {
   });
 
   group('Stop and failures', () {
-    test('Stop mid-utterance kills the child and never queues a late sentence',
-        () async {
-      const text =
-          '第一句话已经足够长了。第二句话也已经足够长了！第三句话同样非常足够长？';
-      final api = FakeTtsApi()..holdFromCall = 2;
-      final launcher = FakePlaybackLauncher();
-      final sapi = FakeSapiLauncher();
-      final speaker = BackendTtsSpeaker(
-        api: api,
-        launcher: launcher,
-        fallback: WindowsSapiSpeaker(launcher: sapi),
-        tempDirectory: tempDirectory,
-      );
+    test(
+      'Stop mid-utterance kills the child and never queues a late sentence',
+      () async {
+        const text = '第一句话已经足够长了。第二句话也已经足够长了！第三句话同样非常足够长？';
+        final api = FakeTtsApi()..holdFromCall = 2;
+        final launcher = FakePlaybackLauncher();
+        final sapi = FakeSapiLauncher();
+        final speaker = BackendTtsSpeaker(
+          api: api,
+          launcher: launcher,
+          fallback: WindowsSapiSpeaker(launcher: sapi),
+          tempDirectory: tempDirectory,
+        );
 
-      await speaker.speak(text);
-      final player = launcher.session;
-      await waitUntil(() => api.calls >= 2 && api.holds.isNotEmpty);
+        await speaker.speak(text);
+        final player = launcher.session;
+        await waitUntil(() => api.calls >= 2 && api.holds.isNotEmpty);
 
-      expect(player.paths, hasLength(1), reason: 'sentence 2 is still in flight');
-      await speaker.stop();
-      expect(player.killCount, 1, reason: 'Stop must silence the voice');
-      expect(speaker.speaking, isFalse);
+        expect(
+          player.paths,
+          hasLength(1),
+          reason: 'sentence 2 is still in flight',
+        );
+        await speaker.stop();
+        expect(player.killCount, 1, reason: 'Stop must silence the voice');
+        expect(speaker.speaking, isFalse);
 
-      api.releaseHolds(); // The late sentence 2 audio arrives after Stop.
-      await waitUntil(() => !player.running);
-      // Give the discarded fetch time to be processed.
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+        api.releaseHolds(); // The late sentence 2 audio arrives after Stop.
+        await waitUntil(() => !player.running);
+        // Give the discarded fetch time to be processed.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      expect(player.paths, hasLength(1), reason: 'no path after Stop');
-      expect(player.playsAfterKill, 0, reason: 'never queue after the kill');
-      expect(sapi.launchCount, 0, reason: 'Stop must never be followed by speech');
-      await drainCleanup();
-      expect(tempFiles(), isEmpty);
-    });
+        expect(player.paths, hasLength(1), reason: 'no path after Stop');
+        expect(player.playsAfterKill, 0, reason: 'never queue after the kill');
+        expect(
+          sapi.launchCount,
+          0,
+          reason: 'Stop must never be followed by speech',
+        );
+        await drainCleanup();
+        expect(tempFiles(), isEmpty);
+      },
+    );
 
-    test('a first-sentence failure falls back to SAPI once with the full text',
-        () async {
-      const text = '第一句在这里。第二句也在这里。';
-      final api = FakeTtsApi(
-        error: const ApiException(
-          code: 'provider_unavailable',
-          message: 'TTS unavailable',
-          statusCode: 503,
-        ),
-      );
-      final launcher = FakePlaybackLauncher();
-      final sapi = FakeSapiLauncher();
-      final speaker = BackendTtsSpeaker(
-        api: api,
-        launcher: launcher,
-        fallback: WindowsSapiSpeaker(launcher: sapi),
-        tempDirectory: tempDirectory,
-      );
+    test(
+      'a first-sentence failure falls back to SAPI once with the full text',
+      () async {
+        const text = '第一句在这里。第二句也在这里。';
+        final api = FakeTtsApi(
+          error: const ApiException(
+            code: 'provider_unavailable',
+            message: 'TTS unavailable',
+            statusCode: 503,
+          ),
+        );
+        final launcher = FakePlaybackLauncher();
+        final sapi = FakeSapiLauncher();
+        final speaker = BackendTtsSpeaker(
+          api: api,
+          launcher: launcher,
+          fallback: WindowsSapiSpeaker(launcher: sapi),
+          tempDirectory: tempDirectory,
+        );
 
-      await speaker.speak(text);
+        await speaker.speak(text);
 
-      expect(api.calls, 1, reason: 'only sentence 1 was attempted');
-      expect(launcher.startCount, 1, reason: 'the player was started early');
-      expect(launcher.session.killCount, 1, reason: 'and killed on fallback');
-      expect(launcher.session.paths, isEmpty);
-      expect(sapi.launchCount, 1, reason: 'the demo must still speak');
-      final script = sapi.lastArguments!.last;
-      expect(script, contains('Add-Type -AssemblyName System.Speech'));
-      expect(
-        script,
-        contains(base64Encode(utf8.encode(text))),
-        reason: 'SAPI gets the whole reply in one call, not one sentence',
-      );
-      expect(speaker.lastAttemptFailed, isTrue);
-      expect(speaker.speaking, isTrue, reason: 'the fallback is speaking now');
-      expect(tempFiles(), isEmpty);
+        expect(api.calls, 1, reason: 'only sentence 1 was attempted');
+        expect(launcher.startCount, 1, reason: 'the player was started early');
+        expect(launcher.session.killCount, 1, reason: 'and killed on fallback');
+        expect(launcher.session.paths, isEmpty);
+        expect(sapi.launchCount, 1, reason: 'the demo must still speak');
+        final script = sapi.lastArguments!.last;
+        expect(script, contains('Add-Type -AssemblyName System.Speech'));
+        expect(
+          script,
+          contains(base64Encode(utf8.encode(text))),
+          reason: 'SAPI gets the whole reply in one call, not one sentence',
+        );
+        expect(speaker.lastAttemptFailed, isTrue);
+        expect(
+          speaker.speaking,
+          isTrue,
+          reason: 'the fallback is speaking now',
+        );
+        expect(tempFiles(), isEmpty);
 
-      await speaker.stop();
-    });
+        await speaker.stop();
+      },
+    );
 
     test('a later-sentence failure does not fall back and finishes what is '
         'queued', () async {
@@ -636,7 +659,11 @@ void main() {
       await waitUntil(() => player.finishCount == 1);
       expect(player.paths, hasLength(1), reason: 'sentence 2 was never queued');
       expect(api.calls, 2, reason: 'sentence 3 is never attempted');
-      expect(sapi.launchCount, 0, reason: 'no fallback in the middle of a reply');
+      expect(
+        sapi.launchCount,
+        0,
+        reason: 'no fallback in the middle of a reply',
+      );
       expect(
         speaker.lastAttemptFailed,
         isTrue,
@@ -687,66 +714,78 @@ void main() {
       expect(tempFiles(), isEmpty);
     });
 
-    test('Stop during the first fetch stays silent instead of falling back',
-        () async {
-      final api = FakeTtsApi()..holdFromCall = 1;
-      final launcher = FakePlaybackLauncher();
-      final sapi = FakeSapiLauncher();
-      final speaker = BackendTtsSpeaker(
-        api: api,
-        launcher: launcher,
-        fallback: WindowsSapiSpeaker(launcher: sapi),
-        tempDirectory: tempDirectory,
-      );
+    test(
+      'Stop during the first fetch stays silent instead of falling back',
+      () async {
+        final api = FakeTtsApi()..holdFromCall = 1;
+        final launcher = FakePlaybackLauncher();
+        final sapi = FakeSapiLauncher();
+        final speaker = BackendTtsSpeaker(
+          api: api,
+          launcher: launcher,
+          fallback: WindowsSapiSpeaker(launcher: sapi),
+          tempDirectory: tempDirectory,
+        );
 
-      final speaking = speaker.speak('用户说了不要再说');
-      await waitUntil(() => api.holds.isNotEmpty);
-      expect(launcher.startCount, 1, reason: 'the player is spawned in parallel');
-      await speaker.stop();
-      expect(
-        launcher.session.killCount,
-        1,
-        reason: 'Stop must kill the player even before its first sentence',
-      );
-      expect(speaker.speaking, isFalse);
-      api.releaseHolds();
-      await speaking;
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+        final speaking = speaker.speak('用户说了不要再说');
+        await waitUntil(() => api.holds.isNotEmpty);
+        expect(
+          launcher.startCount,
+          1,
+          reason: 'the player is spawned in parallel',
+        );
+        await speaker.stop();
+        expect(
+          launcher.session.killCount,
+          1,
+          reason: 'Stop must kill the player even before its first sentence',
+        );
+        expect(speaker.speaking, isFalse);
+        api.releaseHolds();
+        await speaking;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      expect(
-        sapi.launchCount,
-        0,
-        reason: 'Stop must never be followed by speech of any kind',
-      );
-      expect(launcher.session.paths, isEmpty);
-      expect(tempFiles(), isEmpty);
-      expect(speaker.lastAttemptFailed, isFalse);
-    });
+        expect(
+          sapi.launchCount,
+          0,
+          reason: 'Stop must never be followed by speech of any kind',
+        );
+        expect(launcher.session.paths, isEmpty);
+        expect(tempFiles(), isEmpty);
+        expect(speaker.lastAttemptFailed, isFalse);
+      },
+    );
 
-    test('a new utterance interrupts the previous one and cleans it up',
-        () async {
-      final api = FakeTtsApi();
-      final launcher = FakePlaybackLauncher();
-      final speaker = BackendTtsSpeaker(
-        api: api,
-        launcher: launcher,
-        tempDirectory: tempDirectory,
-      );
+    test(
+      'a new utterance interrupts the previous one and cleans it up',
+      () async {
+        final api = FakeTtsApi();
+        final launcher = FakePlaybackLauncher();
+        final speaker = BackendTtsSpeaker(
+          api: api,
+          launcher: launcher,
+          tempDirectory: tempDirectory,
+        );
 
-      await speaker.speak('第一句话足够长了。');
-      final firstPlayer = launcher.sessionAt(0);
-      expect(firstPlayer.paths, hasLength(1));
-      expect(tempFiles(), hasLength(1));
+        await speaker.speak('第一句话足够长了。');
+        final firstPlayer = launcher.sessionAt(0);
+        expect(firstPlayer.paths, hasLength(1));
+        expect(tempFiles(), hasLength(1));
 
-      await speaker.speak('第二句话也足够长了。');
-      expect(launcher.startCount, 2);
-      expect(firstPlayer.killCount, 1, reason: 'the first child is interrupted');
-      expect(launcher.sessionAt(1).paths, hasLength(1));
+        await speaker.speak('第二句话也足够长了。');
+        expect(launcher.startCount, 2);
+        expect(
+          firstPlayer.killCount,
+          1,
+          reason: 'the first child is interrupted',
+        );
+        expect(launcher.sessionAt(1).paths, hasLength(1));
 
-      await playEverything(launcher.sessionAt(1));
-      await drainCleanup();
-      expect(tempFiles(), isEmpty);
-    });
+        await playEverything(launcher.sessionAt(1));
+        await drainCleanup();
+        expect(tempFiles(), isEmpty);
+      },
+    );
 
     test('slow keeps the server default pace, normal asks for +0%', () async {
       final api = FakeTtsApi();

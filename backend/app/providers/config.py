@@ -49,7 +49,11 @@ DEFAULT_LLM_MODEL = "deepseek-flash"
 # /audio/transcriptions endpoint and works from this network, unlike
 # api.openai.com (unreachable here, measured 2026-11-09).
 DEFAULT_ASR_BASE_URL = "https://api.siliconflow.cn/v1"
-DEFAULT_ASR_MODEL = "FunAudioLLM/SenseVoiceSmall"
+# Measured on this network 2026-11-10 with a 4.7 s Chinese clip, same key:
+# Qwen3-ASR 0.52-0.65 s, XingChenASR 2.7 s, SenseVoiceSmall 2.9 s (and 15-43 s
+# spikes). Qwen is the fast, accurate default; latency is what the conversation
+# lives or dies on.
+DEFAULT_ASR_MODEL = "Qwen/Qwen3-ASR-1.7B"
 
 SETTINGS_TABLE = "provider_settings"
 ALL_COLUMNS = ("llm_base_url", "llm_api_key", "llm_model", "asr_base_url", "asr_api_key", "asr_model")
