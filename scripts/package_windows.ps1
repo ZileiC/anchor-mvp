@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$SkipBuild,
     [string]$Version = "0.2.0"
 )
@@ -66,28 +66,30 @@ Anchor MVP — Windows 自包含演示版
   1 = 林秀兰（老人）
   2 = Mei（家人）
 
+这台电脑上没有设置界面
+  电脑是给老人用的「终端」：说话、玩一玩、打电话、停止，就这些。
+  所有配置（AI 模型、语音识别 key、家人联系方式、周报）都在**家人的手机 App** 上做，
+  手机和电脑连同一个 Wi-Fi 即可。手机端不提供语音功能。
+
 接入真模型（否则回复是离线模板）
-  Settings → AI 接入（模型/语音）→ 填 DeepSeek API Key（预设已填好 base URL + deepseek-chat）
-  → 保存 → 测试连接。Key 只保存在本机 backend\data\anchor.db，接口返回时打码。
-  语音识别：Windows 版默认用本机 System.Speech（不要 key，但中文听写质量很差，基本只能演示）。
-  要能真用，就在同一页面配置 OpenAI 兼容的 ASR：填 base URL（如 https://api.openai.com/v1）、
-  API Key、model（如 whisper-1），保存后点“测试”，能看到识别出的文字才算接上。
+  在手机 App 的「AI 接入」里填 DeepSeek API Key（预设已是 base URL + deepseek-flash）
+  和语音识别 key（预设已是 SiliconFlow base URL + Qwen3-ASR），保存后测试。
+  Key 只保存在这台电脑的 backend\data\anchor.db，接口返回时打码。
 
 声音
   * 默认走后端在线神经语音（微软 Edge 神经音色，中文自然），需要联网。
   * 断网或合成失败时自动退回 Windows 系统语音（SAPI），能出声但很机器人。
-  * 每句话合成约 3–7 秒（越长的句子越久），说完到出声之间会有这段等待。
+  * 说完到出声之间会有几秒合成等待。
 
 演示提示
-  * 主动问候只在 App 前台、且在问候窗口内出现；演示数据默认窗口 09:00–21:00，
-    可在 Settings → 问候时间 里调整。
+  * 主动问候只在 App 前台、且在问候窗口内出现；演示数据默认窗口 09:00–21:00。
   * 所有姓名/记录都是合成演示数据，不是真实老人数据。
   * 后端数据目录：backend\data\（删掉即可重置演示）。
   * 诊断日志：backend\data\backend.log（若存在）。
 
 已知限制
   * 这是 Flutter Debug 构建，启动略慢、体积偏大。
-  * 端口固定 127.0.0.1:8077；若被占用，App 会直接当作“已有后端”。
+  * 后端监听 0.0.0.0:8077（手机端才能连上）；若端口被占用，App 会当作已有后端。
   * 详细限制见仓库 docs/limitations.md。
 '@
 Set-Content -Path (Join-Path $stage 'README-DEMO.txt') -Value $readme -Encoding utf8

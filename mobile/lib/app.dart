@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/caregiver/caregiver_home.dart';
 import 'screens/login_screen.dart';
 import 'screens/senior/home_screen.dart';
+import 'screens/setup/setup_home_screen.dart';
 import 'state/app_state.dart';
 import 'state/backend_startup.dart';
 import 'theme.dart';
@@ -62,8 +63,12 @@ class AnchorApp extends StatelessWidget {
   }
 }
 
-/// Chooses the mode from the authenticated profile: senior home, caregiver home,
-/// or the demo role picker.
+/// Chooses the shape from the platform policy and then the authenticated
+/// profile: the setup hub on the phone, the senior home (or the caregiver home)
+/// on the older adult's appliance, or the demo role picker.
+///
+/// Architecture change 2026-11-10: the phone never shows Talk/Play and the
+/// Windows appliance never shows Settings, whichever role signed in.
 class RootScreen extends StatelessWidget {
   const RootScreen({super.key});
 
@@ -72,6 +77,11 @@ class RootScreen extends StatelessWidget {
     final state = AnchorScope.of(context);
     if (!state.signedIn) {
       return LoginScreen(state: state);
+    }
+    if (state.policy.setupApp) {
+      // The family/setup phone: a configuration hub, no conversation UI. The
+      // senior's account may still check its settings from here.
+      return SetupHomeScreen(state: state);
     }
     if (state.isSenior) {
       return SeniorHomeScreen(state: state);

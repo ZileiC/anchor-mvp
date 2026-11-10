@@ -74,11 +74,16 @@ class AnchorScaffold extends StatelessWidget {
                 child: content,
               ),
       ),
-      bottomNavigationBar: StopBar(
-        l: l,
-        label: stopLabel,
-        onStop: onStop ?? () => _defaultStop(context),
-      ),
+      // Stop means "stop talking / stop listening". The family/setup phone has
+      // no voice at all (architecture change 2026-11-10), so it gets no Stop
+      // control either — there is nothing on this device for it to stop.
+      bottomNavigationBar: state.policy.setupApp
+          ? null
+          : StopBar(
+              l: l,
+              label: stopLabel,
+              onStop: onStop ?? () => _defaultStop(context),
+            ),
     );
   }
 

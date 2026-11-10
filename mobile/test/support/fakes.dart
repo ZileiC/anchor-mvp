@@ -6,6 +6,7 @@ import 'package:anchor_app/services/speech_input.dart';
 import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/state/app_state.dart';
 import 'package:anchor_app/state/invitation_controller.dart';
+import 'package:anchor_app/platform_policy.dart';
 import 'package:anchor_app/models/models.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -663,6 +664,11 @@ class FakeMicrophoneInput implements MicrophoneInput {
 
 /// A state wired to doubles: no plugins, no network, a frozen clock, a manual
 /// invitation ticker (so no real timer leaks into a test).
+///
+/// [policy] states which product the test exercises. It defaults to the Windows
+/// appliance (voice UI, no settings) rather than reading the host platform, so a
+/// CI machine on Linux runs exactly the same suite, and a test that needs the
+/// phone passes `const PlatformPolicy.setupApp()`.
 AppState buildTestState(
   FakeApi api, {
   FakeDialer? dialer,
@@ -670,6 +676,7 @@ AppState buildTestState(
   InvitationController? invitationController,
   DateTime Function()? now,
   MicrophoneInput? microphone,
+  PlatformPolicy policy = const PlatformPolicy.seniorAppliance(),
   Duration probeDuration = Duration.zero,
   Duration answerDuration = Duration.zero,
 }) {
@@ -679,6 +686,7 @@ AppState buildTestState(
     speaker: SilentSpeaker(),
     microphone: microphone ?? UnavailableMicrophoneInput(),
     dialer: dialer ?? FakeDialer(),
+    policy: policy,
     now: clock,
     probeDuration: probeDuration,
     answerDuration: answerDuration,

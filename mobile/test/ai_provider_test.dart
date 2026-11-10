@@ -1,9 +1,10 @@
 import 'package:anchor_app/app.dart';
 import 'package:anchor_app/l10n/strings.dart';
 import 'package:anchor_app/models/models.dart';
+import 'package:anchor_app/platform_policy.dart';
 import 'package:anchor_app/screens/senior/ai_providers_screen.dart';
-import 'package:anchor_app/screens/senior/settings_screen.dart';
 import 'package:anchor_app/services/api_client.dart';
+import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/state/app_state.dart';
 import 'package:anchor_app/theme.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +21,9 @@ void main() {
 
   setUp(() {
     api = FakeApi();
-    state = buildTestState(api);
+    // AI 接入 is the family/setup phone's screen (architecture change
+    // 2026-11-10); the Talk/provider group below builds its own appliance state.
+    state = buildTestState(api, policy: const PlatformPolicy.setupApp());
   });
 
   const configuredLlm = ProviderSectionStatus(
@@ -38,13 +41,10 @@ void main() {
     model: 'whisper-1',
   );
 
+  /// Sign in on the phone and open AI 接入 from the setup hub.
   Future<void> openAiScreen(WidgetTester tester) async {
-    await tester.ensureVisible(find.byKey(const Key('primary-settings')));
-    await tester.tap(find.byKey(const Key('primary-settings')));
-    await settle(tester);
-    expect(find.byType(SettingsScreen), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('settings-ai-entry')));
-    await tester.tap(find.byKey(const Key('settings-ai-entry')));
+    await tester.ensureVisible(find.byKey(const Key('setup-ai')));
+    await tester.tap(find.byKey(const Key('setup-ai')));
     await settle(tester);
     expect(find.byType(AiProvidersScreen), findsOneWidget);
   }
@@ -157,13 +157,13 @@ void main() {
       );
       expect(find.byKey(const Key('ai-llm-key-hint')), findsOneWidget);
 
-      // Back in Settings the same refreshed status is visible.
+      // Back on the setup hub the same refreshed status is visible.
       await tester.pageBack();
       await settle(tester);
-      final settingsStatus = tester.widget<Text>(
-        find.byKey(const Key('settings-ai-llm-status')),
+      final hubStatus = tester.widget<Text>(
+        find.byKey(const Key('setup-ai-llm')),
       );
-      expect(settingsStatus.data, contains(L.zh.aiStatusHttp));
+      expect(hubStatus.data, contains(L.zh.aiStatusHttp));
 
       await disposeApp(tester);
     });
@@ -223,48 +223,45 @@ void main() {
       await disposeApp(tester);
     });
 
-    testWidgets('ASR test records a clip, posts audio_b64 and shows the text', (
-      tester,
-    ) async {
-      api.providerStatusValue = const ProviderStatus(
-        llm: configuredLlm,
-        asr: sapiAsr,
-      );
-      api.providerTestResult = const ProviderTestResult(
-        llm: ProviderProbeResult(ok: true, latencyMs: 10, replySample: '好'),
-        asr: ProviderProbeResult(
-          ok: true,
-          latencyMs: 180,
-          textSample: '今天天气很好',
-        ),
-      );
-      final mic = FakeMicrophoneInput();
-      state = buildTestState(api, microphone: mic);
-      await pumpSignedIn(tester, state, size: const Size(390, 844));
-      await openAiScreen(tester);
+    testWidgets(
+      'the ASR check never records on the phone and reports no_sample',
+      (tester) async {
+        api.providerStatusValue = const ProviderStatus(
+          llm: configuredLlm,
+          asr: sapiAsr,
+        );
+        // The real backend's answer when it is handed no audio at all.
+        api.providerTestResult = const ProviderTestResult(
+          llm: ProviderProbeResult(ok: true, latencyMs: 10, replySample: '好'),
+          asr: ProviderProbeResult(ok: false, reason: 'no_sample'),
+        );
+        final mic = FakeMicrophoneInput();
+        state = buildTestState(
+          api,
+          microphone: mic,
+          policy: const PlatformPolicy.setupApp(),
+        );
+        await pumpSignedIn(tester, state, size: const Size(390, 844));
+        await openAiScreen(tester);
 
-      await tester.ensureVisible(find.byKey(const Key('ai-asr-test')));
-      await tester.tap(find.byKey(const Key('ai-asr-test')));
-      await settle(tester);
+        // On a phone the button promises a configuration check, not a recording.
+        expect(find.text(L.zh.aiAsrTestConfig), findsOneWidget);
 
-      expect(mic.startCalls, 1);
-      expect(mic.stopCalls, 1);
-      expect(api.lastTestAudioB64, mic.captured!.base64);
-      expect(api.lastTestAudioMime, 'audio/wav');
-      expect(find.text(L.zh.aiAsrTranscript('今天天气很好')), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const Key('ai-asr-test')));
+        await tester.tap(find.byKey(const Key('ai-asr-test')));
+        await settle(tester);
 
-      // The honest failure: the server says there was no usable sample.
-      api.providerTestResult = const ProviderTestResult(
-        llm: ProviderProbeResult(ok: true, latencyMs: 10, replySample: '好'),
-        asr: ProviderProbeResult(ok: false, reason: 'no_sample'),
-      );
-      await tester.ensureVisible(find.byKey(const Key('ai-asr-test')));
-      await tester.tap(find.byKey(const Key('ai-asr-test')));
-      await settle(tester);
-      expect(find.text(L.zh.aiAsrReasonNoSample), findsOneWidget);
+        // Architecture change 2026-11-10: the phone never opens a microphone and
+        // never plays speech, so nothing can record the room by accident.
+        expect(mic.startCalls, 0);
+        expect(mic.stopCalls, 0);
+        expect(api.lastTestAudioB64, isNull);
+        expect(find.text(L.zh.aiAsrReasonNoSample), findsOneWidget);
+        expect((state.speaker as SilentSpeaker).spoken, isEmpty);
 
-      await disposeApp(tester);
-    });
+        await disposeApp(tester);
+      },
+    );
 
     testWidgets('the caregiver cannot open AI settings', (tester) async {
       api.asCaregiver();
@@ -418,6 +415,8 @@ void main() {
           llm: configuredLlm,
           asr: sapiAsr,
         );
+        // Talk only exists on the older adult's appliance.
+        state = buildTestState(api);
         await pumpSignedIn(tester, state, size: const Size(390, 844));
         await openTalk(tester);
 

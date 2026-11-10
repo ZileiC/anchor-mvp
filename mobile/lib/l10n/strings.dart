@@ -123,6 +123,12 @@ class L {
     '要先在设置里打开“语音在云端处理”，我才能陪你聊天。',
     'Turn on “process speech in the cloud” in settings before we can talk.',
   );
+  // On the Windows appliance there is no settings screen to open, so the banner
+  // points at the phone instead of offering a button that cannot exist.
+  String get talkConsentNeededOnPhone => t(
+    '“语音在云端处理”这个同意要在家人的手机上打开。',
+    'Turn on “process speech in the cloud” from the family phone.',
+  );
   String get goToSettings => t('去设置', 'Open settings');
   String get micUnavailable => t(
     '这个设备的麦克风用不了，可以打字。',
@@ -364,6 +370,10 @@ class L {
   String get aiAsrEngineNone => t('未接入', 'Not connected');
   String get aiAsrEngineFake => t('测试替身（不真实）', 'Test fake (not real)');
   String get aiAsrTestMic => t('测试麦克风识别', 'Test microphone recognition');
+  // The family/setup phone never records (architecture change 2026-11-10): the
+  // same button only checks the saved configuration, without a sample.
+  String get aiAsrTestConfig =>
+      t('测试语音识别配置', 'Test the speech recognition setup');
   String get aiAsrTesting =>
       t('正在录音，请说一句话…', 'Recording — please say a sentence…');
   String get aiAsrNoSample =>
@@ -396,6 +406,13 @@ class L {
     '现在按麦克风不会录音，也不会显示假的文字。可以先去设置接入，或者改用打字。',
     'The microphone will not record, and no fake transcript is shown. Connect '
         'speech recognition in settings, or type instead.',
+  );
+  // The Windows appliance has no settings screen at all: the copy names the
+  // family phone instead of an entry that does not exist there.
+  String get asrNotConnectedBodyOnComputer => t(
+    '现在按麦克风不会录音，也不会显示假的文字。语音识别要在家人的手机上接入，或者改用打字。',
+    'The microphone will not record, and no fake transcript is shown. Speech '
+        'recognition is connected from the family phone, or type instead.',
   );
   String get micNotConnected => t('语音识别未接入', 'Speech recognition off');
   String get llmOfflineBadge => t('离线模板回复', 'Offline template reply');
@@ -457,6 +474,47 @@ class L {
   String get proposalRejected => t('已取消', 'Cancelled');
   String get caregiverSettingsOnly =>
       t('设置只给老人用。', 'Settings belong to the older adult.');
+
+  // -- setup / family phone home (architecture change 2026-11-10) -----------
+  // The phone configures and reaches people; it never chats and never speaks.
+  String get setupTitle => t('设置与联络', 'Setup & family');
+  String get setupDeviceTitle =>
+      t('这台手机只负责设置', 'This phone only sets things up');
+  String get setupDeviceBody => t(
+    '聊天和语音在老人的电脑上。这里接上 AI、联系家人、看周报。',
+    'Chat and voice run on the older adult’s computer. Here you connect AI, '
+        'reach family and read the weekly update.',
+  );
+  String get setupFamilyTitle => t('家人与联系', 'Family & contacts');
+  String get setupFamilyHint => t(
+    '邀请家人、看周报、提议问候时间。',
+    'Invite family, read the weekly update, suggest a check-in time.',
+  );
+  String get setupDeviceSettings => t('设置与设备', 'Settings & device');
+  String get setupDeviceSettingsHint => t(
+    '同意事项、问候时间、家人、数据。',
+    'Permissions, check-in times, family, and your data.',
+  );
+  String get setupSeniorNote => t(
+    '老人的账号也可以在这里查看设置。聊天和语音只在电脑上。',
+    'The older adult’s account can check settings here too. Chat and voice '
+        'only happen on the computer.',
+  );
+  String get setupRecordsTitle => t('消息与操作记录', 'Messages & records');
+  String setupRecordsDigest(String status) =>
+      t('本周简报：$status', 'Weekly update: $status');
+  String get setupRecordsHint => t(
+    '谁改过设置、谁打过电话，电脑端都有记录；手机上的查看界面还没做。',
+    'Who changed a setting and who called is recorded on the computer. The '
+        'phone has no screen for it yet.',
+  );
+  String get setupNoDigestStatus => t('还没有生成', 'not generated yet');
+  String get setupDigestPending =>
+      t('等老人同意后才会发出。', 'It is sent only after the older adult approves.');
+  String get setupNotOnComputer => t(
+    '这台电脑上没有设置。请用家人的手机查看。',
+    'There are no settings on this computer. Use the family phone.',
+  );
 
   // -- shared labels --------------------------------------------------------
   String get today => t('今天', 'Today');

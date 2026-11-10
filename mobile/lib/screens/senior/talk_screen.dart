@@ -85,7 +85,17 @@ class _TalkScreenState extends State<TalkScreen> {
   }
 
   /// Opens Settings and re-reads the provider status on the way back.
+  ///
+  /// The Windows appliance has no settings screen (architecture change
+  /// 2026-11-10), so this never pushes one there: a stale button explains
+  /// instead of opening a route that does not exist on this build.
   Future<void> _openSettings() async {
+    if (!widget.state.policy.setupApp) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(widget.state.l.setupNotOnComputer)),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SettingsScreen(state: widget.state),
@@ -107,7 +117,10 @@ class _TalkScreenState extends State<TalkScreen> {
           style: const TextStyle(fontSize: 28),
         ),
         content: Text(
-          l.asrNotConnectedBody,
+          // The appliance has no settings screen, so it names the phone instead.
+          widget.state.policy.setupApp
+              ? l.asrNotConnectedBody
+              : l.asrNotConnectedBodyOnComputer,
           style: const TextStyle(fontSize: 24, color: AnchorTheme.ink),
         ),
         actions: <Widget>[
@@ -121,16 +134,22 @@ class _TalkScreenState extends State<TalkScreen> {
               child: Text(l.typeInstead, style: const TextStyle(fontSize: 24)),
             ),
           ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: AnchorTheme.minTouchTarget,
+          // Appliance only: there is no settings screen to send the senior to, so
+          // the honest typing fallback is the only action offered.
+          if (widget.state.policy.setupApp)
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: AnchorTheme.minTouchTarget,
+              ),
+              child: FilledButton(
+                key: const Key('talk-asr-go-settings'),
+                onPressed: () => Navigator.of(dialogContext).pop('settings'),
+                child: Text(
+                  l.goToSettings,
+                  style: const TextStyle(fontSize: 24),
+                ),
+              ),
             ),
-            child: FilledButton(
-              key: const Key('talk-asr-go-settings'),
-              onPressed: () => Navigator.of(dialogContext).pop('settings'),
-              child: Text(l.goToSettings, style: const TextStyle(fontSize: 24)),
-            ),
-          ),
         ],
       ),
     );
@@ -223,13 +242,20 @@ class _TalkScreenState extends State<TalkScreen> {
               l: l,
               tone: BannerTone.problem,
               title: l.needConsentCloud,
-              body: l.talkConsentNeeded,
-              extraAction: OutlinedButton.icon(
-                key: const Key('talk-open-settings'),
-                onPressed: _openSettings,
-                icon: const Icon(Icons.settings, size: 28),
-                label: Text(l.goToSettings),
-              ),
+              // On the appliance the permission has to be turned on from the
+              // family phone, so the banner says that instead of offering a
+              // Settings button this build does not have.
+              body: widget.state.policy.setupApp
+                  ? l.talkConsentNeeded
+                  : l.talkConsentNeededOnPhone,
+              extraAction: widget.state.policy.setupApp
+                  ? OutlinedButton.icon(
+                      key: const Key('talk-open-settings'),
+                      onPressed: _openSettings,
+                      icon: const Icon(Icons.settings, size: 28),
+                      label: Text(l.goToSettings),
+                    )
+                  : null,
             )
           else if (state.offline)
             StatusBanner(

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../config.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
+import '../platform_policy.dart';
 import '../services/api_client.dart';
 import '../services/credential_store.dart';
 import '../services/dialer.dart';
@@ -29,13 +30,15 @@ class AppState extends ChangeNotifier {
     required this.speaker,
     required this.microphone,
     required this.dialer,
+    PlatformPolicy? policy,
     CredentialStore? credentials,
     DateTime Function()? now,
     InvitationController? invitationController,
     Duration invitationInterval = const Duration(seconds: 60),
     this.probeDuration = const Duration(seconds: 3),
     this.answerDuration = const Duration(seconds: 4),
-  }) : credentials = credentials ?? CredentialStore(),
+  }) : policy = policy ?? PlatformPolicy.instance,
+       credentials = credentials ?? CredentialStore(),
        _now = now ?? DateTime.now {
     invitations =
         invitationController ??
@@ -54,6 +57,13 @@ class AppState extends ChangeNotifier {
   final MicrophoneInput microphone;
   final Dialer dialer;
   final CredentialStore credentials;
+
+  /// Which product this build is (Windows appliance vs family/setup phone).
+  ///
+  /// Screens read it through [policy]; on the setup phone every voice entry
+  /// point below is a no-op, so an accidental caller can never open the mic.
+  final PlatformPolicy policy;
+
   final DateTime Function() _now;
 
   /// How long the Settings screen records when the user tests the microphone.
@@ -254,6 +264,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // -- voice gate (architecture change 2026-11-10) -------------------------
+  /// True when this build may use the microphone or the speaker.
+  ///
+  /// Windows is the older adult's appliance and keeps the whole voice path;
+  /// the family/setup phone has none of it.
+  bool get voiceAllowed => !policy.setupApp;
+
+  /// Returns true — and logs one line — when this platform may not use voice.
+  ///
+  /// Every voice entry point starts with this, so even a caller the UI would
+  /// never reach (a restored route, a forgotten button, a proactive invitation)
+  /// returns instead of opening the microphone or the speaker.
+  bool _voiceBlocked(String what) {
+    if (voiceAllowed) return false;
+    debugPrint('Voice disabled on the setup phone: $what ignored.');
+    return true;
+  }
+
   // -- authentication ------------------------------------------------------
   Future<bool> signInDemo(int userId) async {
     busy = true;
@@ -286,7 +314,10 @@ class AppState extends ChangeNotifier {
       offline = false;
       if (me.isSenior) {
         await _loadSenior();
-        invitations.start();
+        // A proactive check-in belongs to the appliance that can speak it; the
+        // phone must not race the PC for today's one invitation (or start a
+        // greeting it is not allowed to play).
+        if (voiceAllowed) invitations.start();
       } else {
         // Caregivers never see or trigger an invitation.
         invitations.stop(reset: true);
@@ -477,6 +508,9 @@ class AppState extends ChangeNotifier {
   /// Returns null when the microphone is missing or nothing usable was captured;
   /// the caller must show that honestly and never substitute a transcript.
   Future<RecordedAudio?> captureProbeClip() async {
+    // The phone has no microphone path at all: the ASR test button is phone-only
+    // UI, but a stale caller must not be able to open the device either.
+    if (_voiceBlocked('captureProbeClip')) return null;
     try {
       if (!await microphone.isAvailable()) {
         micUnavailable = true;
@@ -719,6 +753,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> _speak(String text) async {
     if (text.trim().isEmpty) return;
+    // The setup phone never plays speech — not a reply, not a greeting, not the
+    // Play feedback. Returning before [speechActive] is touched keeps the UI
+    // from ever showing a speaking state on the phone.
+    if (_voiceBlocked('speak')) return;
     // Remember it even if the device voice is unavailable: Repeat must be able to
     // replay what the senior saw, not only what the speaker managed to say.
     _lastAnchorText = text;
@@ -892,6 +930,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> startRecording() async {
+    // The family/setup phone has no microphone path: never open the device.
+    if (_voiceBlocked('startRecording')) return false;
     // Without a real recogniser the backend would refuse the turn anyway, so
     // never record something that cannot be transcribed (the UI shows why).
     if (!asrConfigured) return false;
@@ -921,6 +961,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<TurnResult?> stopRecordingAndSend() async {
+    if (_voiceBlocked('stopRecordingAndSend')) return null;
     if (!recording) return null;
     recording = false;
     notifyListeners();
@@ -936,7 +977,7 @@ class AppState extends ChangeNotifier {
   Future<void> cancelRecording() async {
     _answerTicket++; // drops a Play voice answer that is still in flight
     recording = false;
-    await microphone.cancel();
+    if (!_voiceBlocked('cancelRecording')) await microphone.cancel();
     notifyListeners();
   }
 
@@ -959,8 +1000,10 @@ class AppState extends ChangeNotifier {
     speechActive = false;
     notifyListeners();
 
-    await microphone.cancel();
-    await speaker.stop();
+    if (voiceAllowed) {
+      await microphone.cancel();
+      await speaker.stop();
+    }
 
     if (current != null) {
       // Fire and forget: the senior pressed Stop, so the screen must go quiet
@@ -1002,6 +1045,9 @@ class AppState extends ChangeNotifier {
   Future<String?> listenForAnswer({
     void Function()? onRecordingComplete,
   }) async {
+    // Play's voice answer is appliance-only: on the phone it returns nothing and
+    // the card stays a tap-only card.
+    if (_voiceBlocked('listenForAnswer')) return null;
     // One recording at a time: a second tap must not stack two capture streams.
     if (_answerListening) return null;
     // Without a real recogniser the server would refuse the clip anyway, so the

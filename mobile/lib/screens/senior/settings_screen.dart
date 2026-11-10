@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
+import '../../widgets/closed_on_device.dart';
 import '../../widgets/status_banner.dart';
 import '../../widgets/time_picker_dialog.dart';
 import 'ai_providers_screen.dart';
@@ -66,6 +67,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AnchorScope.of(context);
+    // Settings exist only on the family/setup phone (architecture change
+    // 2026-11-10). On the Windows appliance this screen is not reachable; a
+    // route pushed by hand or restored lands here and bounces back to Home.
+    if (!state.policy.setupApp) {
+      return ClosedOnDevice(message: state.l.setupNotOnComputer);
+    }
     final l = state.l;
     final prefs = state.preferences ?? Preferences.defaults;
 

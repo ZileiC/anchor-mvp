@@ -2,7 +2,6 @@ import 'package:anchor_app/app.dart';
 import 'package:anchor_app/l10n/strings.dart';
 import 'package:anchor_app/screens/login_screen.dart';
 import 'package:anchor_app/screens/senior/home_screen.dart';
-import 'package:anchor_app/screens/senior/settings_screen.dart';
 import 'package:anchor_app/services/backend_bootstrapper.dart';
 import 'package:anchor_app/state/backend_startup.dart';
 import 'package:flutter/material.dart';
@@ -142,7 +141,7 @@ void main() {
     await disposeApp(tester);
   });
 
-  testWidgets('a dead backend never blocks Stop or Settings', (tester) async {
+  testWidgets('a dead backend never blocks Stop', (tester) async {
     final probe = FakeHealthProbe(<bool>[false]);
     final launcher = FakeLauncher();
     final startup = startupWith(probe, launcher, executableExists: false);
@@ -156,16 +155,12 @@ void main() {
     await settle(tester);
     expect(find.byType(SeniorHomeScreen), findsOneWidget);
 
-    // The card follows the user into Home, but Stop and Settings still work.
+    // The card follows the user into Home, but Stop still works.
     expect(find.text(L.zh.backendUnavailableTitle), findsOneWidget);
     expect(find.byKey(const Key('stop-control')), findsOneWidget);
-
-    await tester.ensureVisible(find.byKey(const Key('primary-settings')));
-    await tester.tap(find.byKey(const Key('primary-settings')));
-    await settle(tester);
-    expect(find.byType(SettingsScreen), findsOneWidget);
-    await tester.pageBack();
-    await settle(tester);
+    // ...and the appliance has no settings UI at all (architecture change
+    // 2026-11-10), so there is no Settings entry to lose in the first place.
+    expect(find.byKey(const Key('primary-settings')), findsNothing);
 
     await tester.tap(find.byKey(const Key('stop-control')));
     await settle(tester);

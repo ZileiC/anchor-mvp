@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
+import '../../widgets/closed_on_device.dart';
 
 /// Settings → “AI 接入（模型/语音）”.
 ///
@@ -81,9 +82,7 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     final asrBase = status.asr.baseUrl ?? '';
     _asrBase.text = asrBase.isEmpty ? 'https://api.siliconflow.cn/v1' : asrBase;
     final asrModel = status.asr.model;
-    _asrModel.text = asrModel.isEmpty
-        ? 'Qwen/Qwen3-ASR-1.7B'
-        : asrModel;
+    _asrModel.text = asrModel.isEmpty ? 'Qwen/Qwen3-ASR-1.7B' : asrModel;
   }
 
   String? _trim(String value) {
@@ -237,18 +236,23 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     );
   }
 
-  /// Records a short real clip and asks the backend to transcribe it. The result
-  /// shown is the backend's text or its honest error — never a canned sentence.
+  /// Checks the configured recogniser.
+  ///
+  /// On the family/setup phone nothing may open a microphone (architecture
+  /// change 2026-11-10), so the probe runs **without** a sample and the backend
+  /// honestly answers `no_sample` — the screen shows that, instead of a
+  /// recording state that never happened.
   Future<void> _testAsr() async {
     final l = _state.l;
+    final onPhone = _state.policy.setupApp;
     setState(() {
       _asrTesting = true;
-      _asrTestMessage = l.aiAsrTesting;
+      _asrTestMessage = onPhone ? null : l.aiAsrTesting;
       _asrTestFailed = false;
     });
-    final audio = await _state.captureProbeClip();
+    final audio = onPhone ? null : await _state.captureProbeClip();
     if (!mounted) return;
-    if (audio == null) {
+    if (audio == null && !onPhone) {
       setState(() {
         _asrTesting = false;
         _asrTestMessage = _state.micUnavailable
@@ -317,6 +321,12 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
   Widget build(BuildContext context) {
     final state = AnchorScope.of(context);
     final l = state.l;
+    // AI 接入 is a phone screen now (architecture change 2026-11-10): the
+    // Windows appliance carries no provider fields at all, so a route pushed by
+    // hand or restored goes back to Home instead of showing them.
+    if (!state.policy.setupApp) {
+      return ClosedOnDevice(message: l.setupNotOnComputer);
+    }
     if (!state.isSenior) {
       return Scaffold(
         appBar: AppBar(title: Text(l.aiProvidersTitle)),
@@ -555,7 +565,9 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
                 onPressed: _asrTesting ? null : _testAsr,
                 icon: const Icon(Icons.graphic_eq, size: 26),
                 label: Text(
-                  l.aiAsrTestMic,
+                  // The phone has no microphone to record a sample with, so the
+                  // button promises a configuration check, not a recording.
+                  state.policy.setupApp ? l.aiAsrTestConfig : l.aiAsrTestMic,
                   style: const TextStyle(fontSize: 24),
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:anchor_app/app.dart';
 import 'package:anchor_app/config.dart';
 import 'package:anchor_app/l10n/strings.dart';
 import 'package:anchor_app/models/models.dart';
+import 'package:anchor_app/platform_policy.dart';
 import 'package:anchor_app/screens/caregiver/caregiver_home.dart';
 import 'package:anchor_app/screens/login_screen.dart';
 import 'package:anchor_app/screens/senior/activity_screen.dart';
@@ -56,21 +57,23 @@ void main() {
     expect(find.byKey(const Key('stop-control')), findsNothing);
   });
 
-  testWidgets('home shows exactly three primary actions, Settings and Stop', (
-    tester,
-  ) async {
-    await pumpSignedIn(tester, state, size: const Size(390, 844));
+  testWidgets(
+    'the appliance home shows three primary actions and Stop, never Settings',
+    (tester) async {
+      await pumpSignedIn(tester, state, size: const Size(390, 844));
 
-    expect(find.byType(SeniorHomeScreen), findsOneWidget);
-    expect(find.byType(BigActionButton), findsNWidgets(3));
-    expect(find.byKey(const Key('primary-talk')), findsOneWidget);
-    expect(find.byKey(const Key('primary-play')), findsOneWidget);
-    expect(find.byKey(const Key('primary-call')), findsOneWidget);
-    expect(find.byKey(const Key('primary-settings')), findsOneWidget);
-    expect(find.byKey(const Key('stop-control')), findsOneWidget);
+      expect(find.byType(SeniorHomeScreen), findsOneWidget);
+      expect(find.byType(BigActionButton), findsNWidgets(3));
+      expect(find.byKey(const Key('primary-talk')), findsOneWidget);
+      expect(find.byKey(const Key('primary-play')), findsOneWidget);
+      expect(find.byKey(const Key('primary-call')), findsOneWidget);
+      // Architecture change 2026-11-10: the senior's computer has no settings UI.
+      expect(find.byKey(const Key('primary-settings')), findsNothing);
+      expect(find.byKey(const Key('stop-control')), findsOneWidget);
 
-    await disposeApp(tester);
-  });
+      await disposeApp(tester);
+    },
+  );
 
   testWidgets('every primary action opens its screen in one tap (phone)', (
     tester,
@@ -89,7 +92,6 @@ void main() {
     await visit(const Key('primary-talk'), TalkScreen);
     await visit(const Key('primary-play'), ActivityScreen);
     await visit(const Key('primary-call'), CallScreen);
-    await visit(const Key('primary-settings'), SettingsScreen);
 
     await disposeApp(tester);
   });
@@ -133,7 +135,6 @@ void main() {
       const Key('primary-talk'),
       const Key('primary-play'),
       const Key('primary-call'),
-      const Key('primary-settings'),
     ]) {
       final size = tester.getSize(find.byKey(key));
       expect(size.height, greaterThanOrEqualTo(56), reason: '$key height');
@@ -161,7 +162,6 @@ void main() {
       const Key('primary-talk'),
       const Key('primary-play'),
       const Key('primary-call'),
-      const Key('primary-settings'),
     ]) {
       await tester.ensureVisible(find.byKey(key));
       await tester.tap(find.byKey(key));
@@ -202,9 +202,12 @@ void main() {
   testWidgets('sharing topics start private and can be enabled by the senior', (
     tester,
   ) async {
+    // Settings are the family/setup phone's job now (architecture change
+    // 2026-11-10): the senior signs in there and opens them from the hub.
+    state = buildTestState(api, policy: const PlatformPolicy.setupApp());
     await pumpSignedIn(tester, state, size: const Size(390, 844));
-    await tester.ensureVisible(find.byKey(const Key('primary-settings')));
-    await tester.tap(find.byKey(const Key('primary-settings')));
+    await tester.ensureVisible(find.byKey(const Key('setup-settings')));
+    await tester.tap(find.byKey(const Key('setup-settings')));
     await settle(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);
 
@@ -232,11 +235,12 @@ void main() {
   testWidgets('the senior can make this device the check-in device', (
     tester,
   ) async {
+    state = buildTestState(api, policy: const PlatformPolicy.setupApp());
     await pumpSignedIn(tester, state, size: const Size(390, 844));
     expect(state.preferences?.designatedDeviceId, isNull);
 
-    await tester.ensureVisible(find.byKey(const Key('primary-settings')));
-    await tester.tap(find.byKey(const Key('primary-settings')));
+    await tester.ensureVisible(find.byKey(const Key('setup-settings')));
+    await tester.tap(find.byKey(const Key('setup-settings')));
     await settle(tester);
 
     final key = find.byKey(const Key('settings-designated-device'));

@@ -160,8 +160,13 @@ class _SeniorHomeScreenState extends State<SeniorHomeScreen> with RouteAware {
                 if (state.invitations.hint == InvitationHint.designatedDevice)
                   _deviceHint(l),
                 _actions(context, l, wide),
-                const SizedBox(height: 16),
-                _settingsButton(context, l),
+                // The older adult's Windows appliance has no settings UI at all
+                // (architecture change 2026-11-10); this tile only belongs to
+                // the family/setup phone.
+                if (state.policy.setupApp) ...<Widget>[
+                  const SizedBox(height: 16),
+                  _settingsButton(context, l),
+                ],
                 const SizedBox(height: 16),
                 _nextCheckin(l),
               ],
