@@ -10,8 +10,6 @@ It runs on two devices, on purpose. The computer in the living room is what the 
 
 We took the settings screen off the computer and the voice off the phone after watching someone in their seventies hunt for a save button they did not need. Splitting the product was simpler than hiding things from them.
 
-![Login screen](docs/assets/screenshot-login.png)
-
 ## What it does
 
 Say "今天有点闷" and Anchor answers out loud. Speech goes to a cloud recognizer, DeepSeek writes the reply, and the voice is a neural one. The Windows SAPI voice sounded like a train announcement from 1998, so it is only a fallback now. The caption appears a couple of seconds before the audio starts, because synthesis takes three to seven seconds and pretending otherwise would just confuse people.
@@ -19,8 +17,6 @@ Say "今天有点闷" and Anchor answers out loud. Speech goes to a cloud recogn
 After the third exchange an activity turns up inside the conversation. Sometimes it is a question about kitchen safety. Sometimes it is a short story about a sewing machine, or a prompt about the dish their mother cooked. You answer by tapping or by saying it out loud. A right answer adds a flower to the count. A wrong one shows the right answer and explains why, and the word "wrong" is not used anywhere in the app. There is no score, no level, and nothing to compare with anyone else.
 
 Calling family is one tap. Stop is visible only while something is actually running, and it disappears the moment the senior presses it. That was not the original design. The original kept a red stop bar on every screen and an elderly user asked why it was still stuck there after she had stopped.
-
-![Home screen](docs/assets/screenshot-home.png)
 
 ## What it does not do
 
