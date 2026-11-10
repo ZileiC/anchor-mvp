@@ -113,6 +113,11 @@ class L {
   String get startTalking => t('开始说话', 'Start talking');
   String get repeat => t('再说一遍', 'Say that again');
   String get repeatNothing => t('还没有可以重复的话。', 'Nothing to repeat yet.');
+
+  // -- encouragement rewards (flowers, never a score) ----------------------
+  String flowersTotal(int count) =>
+      t('已经攒了 $count 朵小花', '$count little flowers collected');
+  String get flowerEarned => t('答对了，多了一朵小花', 'That is right — one more flower');
   String get resumeTalk => t('继续聊天', 'Start again');
   String get talkConsentNeeded => t(
     '要先在设置里打开“语音在云端处理”，我才能陪你聊天。',
@@ -181,6 +186,12 @@ class L {
   );
   String get activityVoiceNotReady =>
       t('语音还没接上，可以先点选项。', 'Voice is not connected yet. You can tap an option.');
+
+  // An activity inside the conversation. The collapsed card says what was
+  // chosen; the chat turn the app posts on the senior's behalf is first person,
+  // because it is the senior's own turn in the conversation.
+  String inlineChosen(String option) => t('你选了：$option', 'You chose: $option');
+  String inlineAnswer(String option) => t('我选了：$option', 'I chose: $option');
 
   // -- call -----------------------------------------------------------------
   String get callTitle => t('打电话', 'Call');
@@ -319,10 +330,8 @@ class L {
     'api.deepseek.com · deepseek-flash',
   );
   String get aiAsrPreset => t('填入硅基流动预设', 'Fill in SiliconFlow preset');
-  String get aiAsrPresetHint => t(
-    'api.siliconflow.cn · Qwen3-ASR',
-    'api.siliconflow.cn · Qwen3-ASR',
-  );
+  String get aiAsrPresetHint =>
+      t('api.siliconflow.cn · Qwen3-ASR', 'api.siliconflow.cn · Qwen3-ASR');
   String get aiStatusLine => t('状态', 'Status');
   String get aiStatusHttp => t('已接入 · http', 'Connected · http');
   String get aiStatusOfflineLlm =>

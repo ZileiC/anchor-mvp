@@ -155,3 +155,30 @@ supersede it with a new entry.
   only exposes `key_hint`). Audio still leaves only in memory; the SAPI path writes a temp WAV that
   is deleted immediately. One test contract changed on purpose: the default ASR is no longer
   `FakeASR`, and `test_frozen_paths` now sees migration 002.
+
+## 2026-11-10 — Activities live inside the conversation (Play stops being a separate world)
+
+- **Context:** the Play screen is a destination: the senior has to leave the conversation to reach
+  a card, and the cards themselves look flat next to the chat. Product decision: activities should
+  appear **inside** the normal conversation, naturally and occasionally, with a richer, icon-led
+  presentation.
+- **Decision:** (a) A plain chat turn may carry an optional top-level `activity` object
+  `{activity_id, intro, item}` where `item` is the same localised card `GET /activities` returns.
+  The engine (`ActivityEngine.offer_for_turn`, migration 003 `activity_offers`) offers only when the
+  senior has spoken ≥ 3 times in this session, ≥ 2 plain turns have passed since the last card, and
+  the item was never offered in this session; candidates come from the persisted rotation, and
+  **offering does not advance it** — only answering does. (b) The bridge sentence is deterministic
+  and ours: the backend appends `intro` to `reply_text`, so the senior hears it, but the question
+  never enters the reply — the card is rendered from the structured fields. (c) Answering is one
+  tap: the app posts the result through the existing `POST /activity-sessions` (rotation and
+  observations unchanged) and sends `我选了：X` as an ordinary chat turn, so the model answers
+  conversationally; the graded sentence is spoken after that reply, sequentially, because the
+  Windows voice cuts itself off when a new sentence starts. (d) Grading lives in one shared rule
+  (`mobile/lib/state/activity_grading.dart`) used by both the Play screen and the in-chat card.
+- **Consequences:** The model's phrasing is only used for the conversation, never for the card:
+  no prompt engineering can corrupt the question, the options or the grading. What we cannot
+  control is how *warmly* the model reacts to "我选了：X" — the verdict is therefore always on
+  screen, and spoken after the reply. The Play screen stays reachable from Home (it also carries
+  voice answers); the rotation is shared, so answering inline also moves Play on. One test contract
+  changed on purpose: `test_frozen_paths` now sees migration 003.
+

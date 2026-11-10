@@ -125,6 +125,15 @@ class FakeApi extends ApiClient {
   String? lastTurnAudioB64;
   ApiException? turnError;
 
+  /// The reply every successful turn answers with. A test that wants the
+  /// assistant's activity bridge sentence puts it in here (the real backend
+  /// appends it to `reply_text`).
+  String replyText = '好的，我在听。';
+
+  /// The activity the next turn offers, or null for a turn without a card
+  /// (`activity` on the turn response).
+  TurnActivity? nextTurnActivity;
+
   // -- Play voice answers --------------------------------------------------
   /// What the fake recogniser returns for the next clip.
   String transcript = '';
@@ -501,12 +510,17 @@ class FakeApi extends ApiClient {
     lastTurnAudioB64 = audioB64;
     if (offline) throw offlineError;
     if (turnError != null) throw turnError!;
+    // Like the backend: one offer per turn, and an item is never offered twice
+    // in one conversation — so the next turn starts without a card.
+    final offer = nextTurnActivity;
+    nextTurnActivity = null;
     final result = pendingTurn == null
         ? TurnResult(
             transcript: text ?? (audioB64 == null ? '' : '这是识别结果'),
-            replyText: '好的，我在听。',
+            replyText: replyText,
             intent: 'chat',
             stopped: false,
+            activity: offer,
           )
         : await pendingTurn!.future;
     // Mirror the real client: a reply that arrives after Stop is discarded.
@@ -530,18 +544,29 @@ class FakeApi extends ApiClient {
     required String activityId,
     required bool completed,
     required int durationSeconds,
+    bool? correct,
   }) async {
     activitySessions.add((
       id: activityId,
       completed: completed,
       seconds: durationSeconds,
     ));
+    final awarded = correct == true;
+    if (awarded) flowersAwarded += 1;
     return ActivitySessionResult(
       recorded: true,
       activityId: activityId,
       observationRecorded: false,
+      awarded: awarded,
+      flowers: flowersAwarded,
     );
   }
+
+  /// Running flower count the fake reports back (and through [rewards]).
+  int flowersAwarded = 0;
+
+  @override
+  Future<int> rewards() async => flowersAwarded;
 
   // -- digest and contacts -------------------------------------------------
   @override

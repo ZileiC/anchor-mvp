@@ -38,6 +38,11 @@ dependencies:
   flutter_tts: ^4.2.5
   record: ^7.1.2
   url_launcher: ^6.3.3
+  # Plays the backend's neural mp3 on Android under the control of the app
+  # (stop = silence now), which the device voice in flutter_tts cannot do.
+  # Android-only in effect: just_audio declares no Windows implementation, so
+  # the Windows build keeps shipping exactly the same plugins as before.
+  just_audio: ^0.10.6
 
 dev_dependencies:
   flutter_test:

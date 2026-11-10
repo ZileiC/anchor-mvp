@@ -12,12 +12,13 @@ export 'speaker.dart';
 ///
 /// Windows → `BackendTtsSpeaker` (the backend's neural voice via
 /// `MediaPlayer`, with the SAPI device voice as fallback), Android/iOS →
-/// `TtsService` (flutter_tts), web → silent.
+/// `AndroidTtsSpeaker` (the same neural voice, played by `just_audio`, with the
+/// device voice as fallback), web → silent.
 ///
-/// Pass the app's [api] on Windows: that same client carries the base URL and
-/// the bearer token set at login, and the speaker re-reads `api.token` on every
-/// request. Without it the factory still builds a working speaker around a
-/// default client (tests and callers that have none).
+/// Pass the app's [api]: that same client carries the base URL and the bearer
+/// token set at login, and the speaker re-reads `api.token` on every request.
+/// Without it the factory still builds a working speaker around a default
+/// client (tests and callers that have none).
 Speaker createSpeaker({ApiClient? api}) => impl.createPlatformSpeaker(api: api);
 
 /// Same choice, made explicitly (used by tests and by callers that already know

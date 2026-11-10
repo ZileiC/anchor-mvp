@@ -1,12 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Network access for the Anchor API. The app itself requests no image,
-         video or room-audio capture permission (S9). Microphone access is
-         contributed by the `record` plugin's own manifest. -->
+    <!-- Network access for the Anchor API (login, turns, /tts, /transcribe). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Microphone access is contributed by the `record` plugin's own manifest,
+         so the APK does request it — but this file deliberately does not: an S9
+         "no surveillance" test in test/ forbids the app's own manifest from
+         asking for any capture permission, so the microphone permission stays
+         with the code that uses it. Verify it in the built APK instead:
+         `aapt2 dump permissions app-debug.apk`. -->
+    <!-- The demo backend is a laptop on the same Wi-Fi and speaks plain HTTP on
+         a LAN address (no TLS certificate can exist for 192.168.x.x). Android 9+
+         blocks cleartext by default, so the app must opt in or every request
+         fails as "offline". A release build for a real deployment should turn
+         this off and use HTTPS, or replace it with a network_security_config
+         limited to that one host. -->
     <application
         android:label="anchor_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

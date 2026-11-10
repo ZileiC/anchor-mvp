@@ -572,6 +572,7 @@ class ApiClient {
     required String activityId,
     required bool completed,
     required int durationSeconds,
+    bool? correct,
   }) async {
     final payload = await _send(
       'POST',
@@ -580,9 +581,16 @@ class ApiClient {
         'activity_id': activityId,
         'completed': completed,
         'duration_seconds': durationSeconds,
+        'correct': ?correct,
       },
     );
     return ActivitySessionResult.fromJson(asMap(payload));
+  }
+
+  /// The senior's encouragement counter (flowers). Never a score or a level.
+  Future<int> rewards() async {
+    final payload = await _send('GET', '/rewards');
+    return asInt(asMap(payload)['flowers'], 0);
   }
 
   // -- digest + family bridge ---------------------------------------------

@@ -122,7 +122,8 @@ def test_migrate_reads_migrations_from_meipass(fake_meipass, tmp_path):
         applied = database.migrate()
     finally:
         database.close()
-    assert applied == ["001_init.sql", "002_provider_settings.sql"]
+    # Migration 003 is the in-conversation activity offers (DECISIONS 2026-11-10).
+    assert applied == ["001_init.sql", "002_provider_settings.sql", "003_inline_activities.sql", "004_activity_rewards.sql"]
 
 
 def test_activity_engine_reads_content_from_meipass(fake_meipass):

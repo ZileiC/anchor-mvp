@@ -29,6 +29,21 @@ abstract final class AnchorTheme {
   static const Color border = Color(0xFF1F2A36);
   static const Color muted = Color(0xFF3B4A57);
 
+  // Feedback fills shared by the Play screen and the in-chat activity card, so
+  // a tap feels the same in both: pale green (this one is right), pale amber
+  // (not quite — warm, never an alarm) and neutral warmth for a reply that is
+  // not graded at all.
+  static const Color correctFill = Color(0xFFE3EFE6);
+  static const Color wrongFill = Color(0xFFF8ECD8);
+  static const Color openFill = Color(0xFFF4EFE5);
+
+  // Per-kind identity for the in-chat activity card (trivia / story / memory).
+  // No photo assets: a dark ink + a pale tint is enough, and ink on tint stays
+  // above 7:1 so the label is readable at 22 px.
+  static const Color storyInk = Color(0xFF4A3B76);
+  static const Color storyFill = Color(0xFFEDE9F7);
+  static const Color triviaFill = Color(0xFFE7F0E9);
+
   static const ColorScheme _scheme = ColorScheme.light(
     primary: primary,
     onPrimary: onPrimary,

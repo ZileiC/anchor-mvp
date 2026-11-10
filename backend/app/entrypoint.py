@@ -26,7 +26,7 @@ from typing import TextIO
 import uvicorn
 
 from app.config import Settings
-from app.paths import DATA_DIR_NAME, app_base_dir, resolve_db_path
+from app.paths import DATA_DIR_NAME, app_base_dir, is_frozen, resolve_db_path
 
 LOG_FILE_NAME = "backend.log"
 
@@ -97,6 +97,13 @@ def main() -> int:
 
     settings = Settings.from_env().with_(db_path=db_path)
     port = int(os.environ.get("ANCHOR_PORT", "8077"))
+    # The packaged desktop build is the demo server for a phone on the same
+    # Wi-Fi (the Flutter app is a client; ASR/TTS/LLM/data all live here), so it
+    # listens on every interface when frozen. A development `uvicorn app.main:app`
+    # keeps 127.0.0.1. Never expose this beyond a trusted LAN: there is no TLS
+    # and the demo identity is a dev login.
+    default_host = "0.0.0.0" if is_frozen() else "127.0.0.1"
+    host = os.environ.get("ANCHOR_HOST", default_host)
 
     if not _port_available(port):
         # Another backend (started by the desktop app) already owns the port.
@@ -112,7 +119,7 @@ def main() -> int:
         seed_demo(database, application.state.clock, settings, demo_window=True)
 
     try:
-        uvicorn.run(application, host="127.0.0.1", port=port, log_level="warning")
+        uvicorn.run(application, host=host, port=port, log_level="warning")
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
         if code == 0:

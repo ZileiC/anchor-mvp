@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../config.dart';
@@ -10,7 +12,9 @@ import '../services/invitation_scheduler.dart';
 import '../services/reminders.dart';
 import '../services/speech_input.dart';
 import '../services/tts_service.dart';
+import 'activity_grading.dart';
 import 'activity_rotation.dart';
+import 'inline_activity.dart';
 import 'invitation_controller.dart';
 
 /// One place for every piece of app state: identity, consent snapshot,
@@ -93,6 +97,22 @@ class AppState extends ChangeNotifier {
   ConversationSession? session;
   List<Caption> captions = <Caption>[];
   TurnResult? lastTurn;
+
+  /// The activity the latest chat turn offered, if any (product decision
+  /// 2026-11-10: activities appear inside the conversation). It belongs to that
+  /// turn: a later turn without an offer ends it, so the card can never drift
+  /// away from the sentence it followed.
+  InlineActivity? inlineActivity;
+
+  /// Encouragement counter: one flower per correct activity answer.
+  ///
+  /// Deliberately *not* a score: a wrong answer never subtracts, nothing is
+  /// compared between users, and the UI never calls this a level or a cognitive
+  /// result. It exists so answering feels worth doing.
+  int flowers = 0;
+
+  /// True when the answer just given earned a flower (drives the "+1" line).
+  bool lastAnswerAwarded = false;
 
   /// The last anchor sentence that was played/displayed — the proactive greeting
   /// or the latest reply. Repeat falls back to this, because a proactive
@@ -292,6 +312,7 @@ class AppState extends ChangeNotifier {
     await loadSchedule();
     await loadProposals();
     await loadProviders();
+    await loadRewards();
   }
 
   Future<void> _loadCaregiver() async {
@@ -732,20 +753,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<TurnResult?> sendText(String text) async {
+  Future<TurnResult?> sendText(
+    String text, {
+    bool keepInlineCard = false,
+  }) async {
     final value = text.trim();
     if (value.isEmpty) return null;
     if (session == null) {
       final opened = await startConversation();
       if (!opened || session == null) return null;
     }
-    return _sendTurn(text: value);
+    return _sendTurn(text: value, keepInlineCard: keepInlineCard);
   }
 
   Future<TurnResult?> _sendTurn({
     String? text,
     RecordedAudio? audio,
     bool addLocalCaption = true,
+    bool keepInlineCard = false,
   }) async {
     final current = session;
     if (current == null) return null;
@@ -769,6 +794,17 @@ class AppState extends ChangeNotifier {
       if (result.stopped) {
         await stopAll();
         return result;
+      }
+      if (result.activity != null) {
+        inlineActivity = InlineActivity(
+          offer: result.activity!,
+          offeredAt: _now().toUtc(),
+        );
+      } else if (!keepInlineCard) {
+        // A card belongs to the turn that offered it: a newer, card-less turn
+        // ends it. The answered card of the current turn is the exception
+        // ([keepInlineCard]), because collapsing it is what records the answer.
+        inlineActivity = null;
       }
       if (result.captions.isNotEmpty) {
         captions = <Caption>[...result.captions];
@@ -801,7 +837,11 @@ class AppState extends ChangeNotifier {
     } on ApiException catch (error) {
       // Keep the failed request so Retry can resend it verbatim.
       if (text != null || audio != null) {
-        _pendingTurn = _PendingTurn(text: text, audio: audio);
+        _pendingTurn = _PendingTurn(
+          text: text,
+          audio: audio,
+          keepInlineCard: keepInlineCard,
+        );
       }
       _fail(error);
       if (error.code == 'session_stopped') {
@@ -829,6 +869,7 @@ class AppState extends ChangeNotifier {
       text: pending.text,
       audio: pending.audio,
       addLocalCaption: false,
+      keepInlineCard: pending.keepInlineCard,
     );
   }
 
@@ -911,6 +952,7 @@ class AppState extends ChangeNotifier {
     sendingTurn = false;
     captions = <Caption>[];
     lastTurn = null;
+    inlineActivity = null;
     _pendingTurn = null;
     final current = session;
     session = null;
@@ -921,14 +963,24 @@ class AppState extends ChangeNotifier {
     await speaker.stop();
 
     if (current != null) {
-      try {
-        await api.stopSession(current.sessionId);
-      } on ApiException catch (error) {
-        // Stopping locally already succeeded; a dead server changes nothing.
-        debugPrint('Server stop failed: $error');
-      }
+      // Fire and forget: the senior pressed Stop, so the screen must go quiet
+      // immediately. Awaiting the server used to leave Stop looking dead for as
+      // long as the request ran (up to the full HTTP timeout) and a second tap
+      // stacked another stop on top of it.
+      unawaited(_stopSessionOnServer(current));
     }
     notifyListeners();
+  }
+
+  Future<void> _stopSessionOnServer(ConversationSession stopped) async {
+    try {
+      await api.stopSession(stopped.sessionId);
+    } on ApiException catch (error) {
+      // Stopping locally already succeeded; a dead server changes nothing.
+      debugPrint('Server stop failed: $error');
+    } catch (error) {
+      debugPrint('Server stop failed: $error');
+    }
   }
 
   // -- activities ----------------------------------------------------------
@@ -1033,19 +1085,74 @@ class AppState extends ChangeNotifier {
     required String activityId,
     required bool completed,
     required int durationSeconds,
+    bool? correct,
   }) async {
     try {
-      await api.recordActivitySession(
+      final result = await api.recordActivitySession(
         activityId: activityId,
         completed: completed,
         durationSeconds: durationSeconds,
+        correct: correct,
       );
+      flowers = result.flowers;
+      lastAnswerAwarded = result.awarded;
+      notifyListeners();
       return true;
     } on ApiException catch (error) {
       _fail(error);
       notifyListeners();
       return false;
     }
+  }
+
+  /// Reads the encouragement counter (flowers). Never a score or a level.
+  Future<void> loadRewards() async {
+    try {
+      flowers = await api.rewards();
+      notifyListeners();
+    } on ApiException catch (error) {
+      debugPrint('Could not read rewards: $error');
+    }
+  }
+
+  /// Answers the activity that is open **inside the conversation**.
+  ///
+  /// One tap, then the chat continues: the card locks immediately (a second tap
+  /// can never grade it twice or post two turns), the result goes through the
+  /// *existing* activity-session endpoint so rotation and observations stay
+  /// correct, and the choice is posted as an ordinary chat turn so the model
+  /// answers conversationally.
+  ///
+  /// The graded sentence is spoken after the model's reply, one after the other:
+  /// the Windows voice stops whatever it is saying when the next sentence
+  /// starts, so overlapping utterances would cut each other off.
+  Future<void> answerInlineActivity(int index) async {
+    final current = inlineActivity;
+    if (current == null || current.answered || sendingTurn) return;
+    final item = current.item;
+    if (index < 0 || index >= item.options.length) return;
+    final l = this.l;
+    inlineActivity = current.withAnswer(index);
+    notifyListeners();
+
+    // Recorded first: the activity really was answered even if the reply fails.
+    final recorded = await finishActivity(
+      activityId: item.id,
+      completed: true,
+      durationSeconds: current.durationSeconds(_now()),
+      // Only a graded card can earn a flower; a memory card passes null.
+      correct: item.hasAnswer ? item.isCorrect(index) : null,
+    );
+    // Play's own rotation advanced on the server; refresh it so the Play screen
+    // does not hand out the card the senior just answered.
+    if (recorded) await loadActivities();
+
+    final result = await sendText(
+      l.inlineAnswer(item.options[index]),
+      keepInlineCard: true,
+    );
+    if (result == null || result.stopped) return;
+    await speakFeedback(gradeActivity(l, item, index).spoken);
   }
 
   // -- digest --------------------------------------------------------------
@@ -1118,6 +1225,7 @@ class AppState extends ChangeNotifier {
       serverContacts = <Contact>[];
       activityFeed = ActivityFeed.empty;
       consent = ConsentSnapshot.privateDefault;
+      inlineActivity = null;
       _lastAnchorText = '';
       notifyListeners();
       await refresh();
@@ -1147,6 +1255,7 @@ class AppState extends ChangeNotifier {
     session = null;
     captions = <Caption>[];
     lastTurn = null;
+    inlineActivity = null;
     _pendingTurn = null;
     providers = null;
     _lastAnchorText = '';
@@ -1233,8 +1342,11 @@ class AppState extends ChangeNotifier {
 
 /// A turn that failed for a recoverable reason and can be resent as-is.
 class _PendingTurn {
-  const _PendingTurn({this.text, this.audio});
+  const _PendingTurn({this.text, this.audio, this.keepInlineCard = false});
 
   final String? text;
   final RecordedAudio? audio;
+
+  /// The retry must keep the collapsed activity card (this turn answers it).
+  final bool keepInlineCard;
 }

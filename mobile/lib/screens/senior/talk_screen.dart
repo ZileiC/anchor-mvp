@@ -5,6 +5,7 @@ import '../../models/conversation.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
+import '../../widgets/inline_activity_card.dart';
 import '../../widgets/status_banner.dart';
 import 'settings_screen.dart';
 
@@ -31,10 +32,18 @@ class _TalkScreenState extends State<TalkScreen> {
   @override
   void initState() {
     super.initState();
+    // The inline activity card lives in [AppState] (it is answered outside this
+    // widget and its offer arrives with a turn), so the stream has to repaint
+    // when that state changes — including a tap collapsing the card in place.
+    widget.state.addListener(_onAppStateChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureSession();
       _refreshProviders();
     });
+  }
+
+  void _onAppStateChanged() {
+    if (mounted) setState(() {});
   }
 
   /// The provider status decides whether the mic may record: it is re-read on
@@ -48,6 +57,7 @@ class _TalkScreenState extends State<TalkScreen> {
 
   @override
   void dispose() {
+    widget.state.removeListener(_onAppStateChanged);
     _controller.dispose();
     _inputFocus.dispose();
     super.dispose();
@@ -137,10 +147,23 @@ class _TalkScreenState extends State<TalkScreen> {
     if (mounted) setState(() {});
   }
 
+  /// One tap on an in-chat option. [AppState.answerInlineActivity] locks the
+  /// card, records the result and posts the choice as the next chat turn, so
+  /// nothing here decides anything: the screen only forwards the tap.
+  Future<void> _answerInline(int index) async {
+    await widget.state.answerInlineActivity(index);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _stop() async {
+    // Show the stopped state first: the button must react to the press even if
+    // the server never answers. Stop used to look broken after the first tap
+    // because the UI waited for the whole stop round trip.
+    if (mounted && !_stoppedLocally) {
+      setState(() => _stoppedLocally = true);
+    }
     await widget.state.stopAll();
     if (!mounted) return;
-    setState(() => _stoppedLocally = true);
     ScaffoldMessenger.maybeOf(context)
         ?.showSnackBar(SnackBar(content: Text(widget.state.l.stoppedTitle)));
   }
@@ -258,6 +281,17 @@ class _TalkScreenState extends State<TalkScreen> {
             const SizedBox(height: 8),
           ],
           _captions(l, state),
+          // The activity is part of the chat, not a separate screen: it follows
+          // the assistant's bridge sentence and collapses in place after the
+          // answer (product decision 2026-11-10).
+          if (state.inlineActivity != null)
+            InlineActivityCard(
+              l: l,
+              activity: state.inlineActivity!,
+              onChoose: _answerInline,
+              flowers: state.flowers,
+              awarded: state.lastAnswerAwarded,
+            ),
           const SizedBox(height: 12),
           if (_stoppedLocally) ...<Widget>[
             _stoppedPanel(context, l, state),

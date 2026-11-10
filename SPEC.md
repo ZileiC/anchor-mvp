@@ -228,6 +228,13 @@ activity_rotation(senior_id INTEGER NOT NULL REFERENCES users(id),
       updated_at TEXT NOT NULL,
       PRIMARY KEY(senior_id, activity_type));
 
+activity_offers(id INTEGER PRIMARY KEY AUTOINCREMENT,  -- in-conversation cards
+      session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      senior_id INTEGER NOT NULL REFERENCES users(id),
+      activity_id TEXT NOT NULL,
+      turn_number INTEGER NOT NULL,         -- senior turns at offer time (1-based)
+      offered_at TEXT NOT NULL);            -- ids only; never speech
+
 digests(id INTEGER PRIMARY KEY AUTOINCREMENT,
       senior_id INTEGER NOT NULL REFERENCES users(id),
       period_start TEXT NOT NULL,           -- YYYY-MM-DD (Monday, local)
@@ -375,7 +382,7 @@ be retried the same day.
 |---|---|---|---|
 | POST | `/sessions` | senior | `{origin, device_id?}`; requires `cloud_processing` else 403 `consent_required`; if active session exists → 409 `conflict` with `session_id`; → `{session_id, state:"active", mic_on:true, started_at, greeting_text?}` (greeting only when local time in greeting window and origin=proactive) |
 | GET | `/sessions/{id}` | senior owner | `{session_id,state,started_at,ended_at,captions:[{role,text,at}],mic_on}`; caregiver → 403 |
-| POST | `/sessions/{id}/turns` | senior owner | body `{text}` **or** `{audio_b64, audio_mime}`; response `{turn_id, transcript, reply_text, intent, action?, captions, stopped:false}`; 409 `session_stopped` after stop; 403 `consent_required` if cloud consent revoked mid-session; audio is never persisted |
+| POST | `/sessions/{id}/turns` | senior owner | body `{text}` **or** `{audio_b64, audio_mime}`; response `{turn_id, transcript, reply_text, intent, action?, activity?, captions, stopped:false}`; 409 `session_stopped` after stop; 403 `consent_required` if cloud consent revoked mid-session; audio is never persisted |
 | POST | `/sessions/{id}/stop` | senior owner | idempotent → `{state:"stopped"}`; purges turn text; background/late generations discarded (cancellation token) |
 
 Turn pipeline (order matters):
@@ -399,6 +406,16 @@ Turn pipeline (order matters):
    deterministic keywords: meal/饭/吃, mood/心情/高兴/累, activity/玩/游戏/下棋, participation fallback;
    evidence is the senior's own words, truncated to 140 chars).
 7. return captions list for the session.
+
+In-conversation activities (addendum, product decision 2026-11-10): a plain chat turn may also return
+`activity:{activity_id, intro, item}` where `item` is the same localised card `GET /activities` returns.
+`ActivityEngine.offer_for_turn` offers only when the senior has spoken ≥3 times in this session, ≥2
+plain turns passed since the previous card, and the item was never offered in this session; candidates
+come from `rotation_ids` (the Play order) and offering does **not** advance the rotation — answering,
+through `POST /activity-sessions`, is what moves it. `intro` is a deterministic bridge sentence (ours,
+localised) that is also appended to `reply_text`, so the senior hears it; the question itself is never
+written into the reply — the app renders the card from `item`. Answering posts the choice as an
+ordinary chat turn, so the model answers conversationally.
 
 Cancellation: `POST /stop` sets the token state; the orchestrator checks `is_cancelled()` before
 writing/model-callback and discards late output (test injects a slow fake LLM).

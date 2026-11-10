@@ -1,12 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:anchor_app/services/android_tts_speaker.dart';
+import 'package:anchor_app/services/api_client.dart';
 import 'package:anchor_app/services/backend_tts_speaker.dart';
 import 'package:anchor_app/services/speaker_factory.dart';
 import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/services/windows_sapi_speaker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Client double: proves the factory hands the app's own client to the speaker
+/// (no socket is ever opened).
+class FakeApiClient extends ApiClient {
+  FakeApiClient()
+    : super(baseUrl: 'http://fake', transport: const UnavailableTransport());
+}
 
 /// Launcher double: records the spawned command and whether it was killed, so
 /// the SAPI speaker can be tested without ever starting a real PowerShell.
@@ -69,10 +78,29 @@ void main() {
       expect(windows.fallback, isA<WindowsSapiSpeaker>());
     });
 
-    test('mobile keeps device TTS and web stays silent', () {
-      expect(createSpeakerForTarget(SpeakerTarget.android), isA<TtsService>());
-      expect(createSpeakerForTarget(SpeakerTarget.ios), isA<TtsService>());
+    test('mobile speaks with the backend voice and keeps the device voice as '
+        'its fallback', () {
+      final android = createSpeakerForTarget(SpeakerTarget.android);
+      expect(android, isA<AndroidTtsSpeaker>());
+      expect(
+        android,
+        isNot(isA<TtsService>()),
+        reason: 'the device voice alone is not the Windows feature set',
+      );
+      expect((android as AndroidTtsSpeaker).fallback, isA<TtsService>());
+
+      final ios = createSpeakerForTarget(SpeakerTarget.ios);
+      expect(ios, isA<AndroidTtsSpeaker>());
+      expect((ios as AndroidTtsSpeaker).fallback, isA<TtsService>());
+
       expect(createSpeakerForTarget(SpeakerTarget.web), isA<SilentSpeaker>());
+    });
+
+    test('Android gets the app client, so login also authorises POST /tts', () {
+      final api = FakeApiClient();
+      final speaker = createSpeakerForTarget(SpeakerTarget.android, api: api);
+
+      expect((speaker as AndroidTtsSpeaker).api, same(api));
     });
   });
 

@@ -161,6 +161,8 @@ class ActivitySessionResult {
     required this.activityId,
     required this.observationRecorded,
     this.nextActivityId,
+    this.awarded = false,
+    this.flowers = 0,
   });
 
   final bool recorded;
@@ -168,11 +170,20 @@ class ActivitySessionResult {
   final bool observationRecorded;
   final String? nextActivityId;
 
+  /// True when this answer was graded right and earned a flower. A wrong answer
+  /// earns nothing — and never takes anything away.
+  final bool awarded;
+
+  /// The senior's running flower count after this answer.
+  final int flowers;
+
   factory ActivitySessionResult.fromJson(Map<String, Object?> json) =>
       ActivitySessionResult(
         recorded: asBool(json['recorded']),
         activityId: asString(json['activity_id']),
         observationRecorded: asBool(json['observation_recorded']),
         nextActivityId: asStringOrNull(json['next_activity_id']),
+        awarded: asBool(json['awarded']),
+        flowers: asInt(json['flowers'], 0),
       );
 }

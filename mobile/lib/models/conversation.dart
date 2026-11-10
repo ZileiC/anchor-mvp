@@ -112,6 +112,35 @@ class TurnAsk {
   );
 }
 
+/// An activity offered **inside** a normal chat turn (`activity` on the turn).
+///
+/// Play is not a separate world any more: the backend may attach one card to a
+/// chat turn, and the Talk screen renders it in the caption stream. [intro] is
+/// the assistant's own bridge sentence (the backend also appends it to
+/// [TurnResult.replyText], so the senior hears it); [item] is exactly the same
+/// localised card the Play screen renders. The question itself is never part of
+/// the sentence, so the structured [item] always governs what is asked.
+class TurnActivity {
+  const TurnActivity({
+    required this.activityId,
+    required this.intro,
+    required this.item,
+  });
+
+  final String activityId;
+  final String intro;
+  final ActivityItem item;
+
+  factory TurnActivity.fromJson(Map<String, Object?> json) {
+    final item = asMap(json['item']);
+    return TurnActivity(
+      activityId: asString(json['activity_id'], asString(item['id'])),
+      intro: asString(json['intro']),
+      item: ActivityItem.fromJson(item),
+    );
+  }
+}
+
 /// `POST /sessions/{id}/turns` response (SPEC §6.3).
 class TurnResult {
   const TurnResult({
@@ -122,6 +151,7 @@ class TurnResult {
     this.turnId,
     this.action,
     this.ask,
+    this.activity,
     this.captions = const <Caption>[],
   });
 
@@ -132,6 +162,10 @@ class TurnResult {
   final bool stopped;
   final TurnAction? action;
   final TurnAsk? ask;
+
+  /// An activity the assistant offered in this turn, or null. Optional on the
+  /// wire: an older backend simply never sends it.
+  final TurnActivity? activity;
   final List<Caption> captions;
 
   factory TurnResult.fromJson(Map<String, Object?> json) => TurnResult(
@@ -144,6 +178,9 @@ class TurnResult {
         ? null
         : TurnAction.fromJson(asMap(json['action'])),
     ask: json['ask'] == null ? null : TurnAsk.fromJson(asMap(json['ask'])),
+    activity: json['activity'] == null
+        ? null
+        : TurnActivity.fromJson(asMap(json['activity'])),
     captions: asList(json['captions'])
         .map((item) => Caption.fromJson(asMap(item)))
         .toList(growable: false),

@@ -24,6 +24,32 @@ CONTENT_PATH = activities_content_path()
 TYPES = ("trivia", "story", "memory")
 MAX_DURATION_SECONDS = 7200
 
+# In-conversation offers (product decision 2026-11-10): Play is not a separate
+# world, so a chat turn may carry one activity, naturally and occasionally.
+# A conversation needs some substance first, and after a card the senior gets
+# plain chat back for a while — never two cards in a row.
+OFFER_MIN_TURNS = 3
+OFFER_GAP_TURNS = 2
+
+# The assistant's own bridge sentence. It introduces the activity without
+# containing the question: the app renders the card from the structured fields,
+# so the wording here never has to match the pack, and a wrong guess by a model
+# can never corrupt the card. Deterministic on purpose — see DECISIONS.md
+# (2026-11-10): the reply text is ours, only the conversation before it is the
+# model's.
+INTROS = {
+    "zh-CN": {
+        "trivia": "对了，我这儿有个小问题想问问你——",
+        "story": "对了，我这儿有个小故事，讲给你听听——",
+        "memory": "对了，我这儿有件小事，想请你帮我记一记——",
+    },
+    "en": {
+        "trivia": "Oh — I have a small question for you.",
+        "story": "Oh — I have a little story to tell you.",
+        "memory": "Oh — there is a small thing I would like you to remember.",
+    },
+}
+
 
 class ActivityEngine:
     def __init__(
@@ -175,6 +201,7 @@ class ActivityEngine:
         activity_id: Any,
         completed: Any,
         duration_seconds: Any,
+        correct: Any = None,
     ) -> dict[str, Any]:
         if not isinstance(activity_id, str) or not activity_id:
             raise validation_error("activity_id is required")
@@ -186,6 +213,8 @@ class ActivityEngine:
             or not 0 <= duration_seconds <= MAX_DURATION_SECONDS
         ):
             raise validation_error(f"duration_seconds must be an integer 0..{MAX_DURATION_SECONDS}")
+        if correct is not None and not isinstance(correct, bool):
+            raise validation_error("correct must be true, false or omitted")
         item = self.find(activity_id)
         if item is None:
             raise AppError("not_found", "Activity not found.")
@@ -194,12 +223,104 @@ class ActivityEngine:
         index = next(position for position, row in enumerate(items) if row["id"] == activity_id)
         self._set_last_index(senior_id, item["type"], index, stamp)
         observation_recorded = self._record_observation(senior_id, item, duration_seconds)
+        # A correct answer earns one flower; anything else earns nothing and
+        # takes nothing away. Explicit `is True` so a stray truthy value can
+        # never turn into a reward.
+        awarded = correct is True
+        if awarded:
+            self._award_flower(senior_id, stamp)
         return {
             "recorded": True,
             "activity_id": activity_id,
             "observation_recorded": observation_recorded,
             "next_activity_id": self.next_activity(senior_id)["id"],
+            "awarded": awarded,
+            "flowers": self.flowers(senior_id),
         }
+
+    # -- encouragement rewards -------------------------------------------
+    def flowers(self, senior_id: int) -> int:
+        """How many flowers this senior has collected (0 when none yet)."""
+        row = self.db.query_one(
+            "SELECT flowers FROM activity_rewards WHERE senior_id = ?", (senior_id,)
+        )
+        return int(row["flowers"]) if row is not None else 0
+
+    def _award_flower(self, senior_id: int, at: str) -> int:
+        self.db.execute(
+            "INSERT INTO activity_rewards(senior_id, flowers, updated_at) VALUES (?,?,?) "
+            "ON CONFLICT(senior_id) DO UPDATE SET "
+            "flowers = activity_rewards.flowers + 1, updated_at = excluded.updated_at",
+            (senior_id, 1, at),
+        )
+        return self.flowers(senior_id)
+
+
+    # -- inline offers inside a conversation ------------------------------
+    def offered_ids(self, session_id: str) -> set[str]:
+        """Activity ids already offered in this conversation (answered or not)."""
+        rows = self.db.query(
+            "SELECT activity_id FROM activity_offers WHERE session_id = ?", (session_id,)
+        )
+        return {str(row["activity_id"]) for row in rows}
+
+    def last_offer_turn(self, session_id: str) -> Optional[int]:
+        """The 1-based senior-turn number of the last offer, or None."""
+        value = self.db.scalar(
+            "SELECT MAX(turn_number) FROM activity_offers WHERE session_id = ?", (session_id,)
+        )
+        return None if value is None else int(value)
+
+    def offer_for_turn(
+        self, senior_id: int, session_id: str, turn_number: int, locale: str = "zh-CN"
+    ) -> Optional[dict[str, Any]]:
+        """Decide whether this chat turn carries an activity, and record the offer.
+
+        Three rules, all of them about *this session* (SPEC §6.5 addition):
+
+        * the senior must have spoken at least :data:`OFFER_MIN_TURNS` times;
+        * at least :data:`OFFER_GAP_TURNS` plain turns since the previous card;
+        * the item must not have been offered in this session yet.
+
+        The candidate comes from the persisted rotation (``rotation_ids``), so
+        the inline path and the Play screen hand out the same order. Offering
+        does **not** advance the rotation: only ``record_session`` does that, so
+        a card the senior ignores never skips the pack.
+        """
+        if turn_number < OFFER_MIN_TURNS:
+            return None
+        last = self.last_offer_turn(session_id)
+        if last is not None and turn_number - last <= OFFER_GAP_TURNS:
+            return None
+        offered = self.offered_ids(session_id)
+        for activity_id in self.rotation_ids(senior_id):
+            if activity_id in offered:
+                continue
+            item = self.find(activity_id)
+            if item is None:
+                continue
+            self._record_offer(session_id, senior_id, activity_id, turn_number)
+            return {
+                "activity_id": activity_id,
+                "intro": self.intro_for(item["type"], locale),
+                "item": self.localise(item, locale),
+            }
+        return None
+
+    def _record_offer(
+        self, session_id: str, senior_id: int, activity_id: str, turn_number: int
+    ) -> None:
+        self.db.execute(
+            "INSERT INTO activity_offers(session_id, senior_id, activity_id, turn_number, "
+            "offered_at) VALUES (?,?,?,?,?)",
+            (session_id, senior_id, activity_id, turn_number, iso_utc(self.clock.now())),
+        )
+
+    @staticmethod
+    def intro_for(activity_type: str, locale: str = "zh-CN") -> str:
+        """The bridge sentence for one activity kind, in the senior's language."""
+        table = INTROS["en" if locale == "en" else "zh-CN"]
+        return table.get(activity_type, table["trivia"])
 
     def _record_observation(self, senior_id: int, item: dict[str, Any], duration: int) -> bool:
         if not self.consent.is_allowed(senior_id, "record_observations"):

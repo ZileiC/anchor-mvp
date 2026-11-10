@@ -5,34 +5,16 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import '../../models/activity.dart';
 import '../../services/answer_matcher.dart';
+import '../../state/activity_grading.dart';
 import '../../state/activity_rotation.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/status_banner.dart';
 
-/// How one tap should feel: an achievement, a gentle correction, or a reply
-/// with no verdict at all.
-enum _Tone { correct, wrong, open }
-
 /// The voice button's three states: nothing happening, the microphone is open
 /// ("我在听…"), or the clip is being turned into words ("稍等一下…").
 enum _VoicePhase { idle, listening, working }
-
-/// The feedback for one tap: what is written, what is spoken, and the colour.
-///
-/// [spoken] is *exactly* the sentence the panel renders, so the voice can never
-/// drift from what the senior reads (they are the same string, built once).
-typedef _Feedback = ({String title, String body, String spoken, _Tone tone});
-
-/// Pale green — "this one is right". Ink on it stays far above 12:1.
-const Color _correctFill = Color(0xFFE3EFE6);
-
-/// Pale amber — "not quite". Warm, never red: a wrong pick is not an alarm.
-const Color _wrongFill = Color(0xFFF8ECD8);
-
-/// Neutral warmth for a memory reply, which has no right or wrong answer.
-const Color _openFill = Color(0xFFF4EFE5);
 
 /// Play: one of the three curated activity types, with no scores and no
 /// rankings anywhere (SPEC §9, S3).
@@ -186,41 +168,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
     _voicePhase = _VoicePhase.idle;
   }
 
-  /// Builds the one sentence pair for the pick at [index]. Pure, so the panel
-  /// and the voice always agree.
-  _Feedback _feedbackFor(L l, ActivityItem item, int index) {
-    if (item.hasAnswer) {
-      if (item.isCorrect(index)) {
-        final body = item.explanation?.trim() ?? '';
-        return _compose(l.activityCorrect, body, _Tone.correct);
-      }
-      final hint = item.wrongHint?.trim() ?? '';
-      // On a wrong pick the senior gets the gentle line, the teaching sentence
-      // and the right option — the card is locked, so "再想想" would be a lie
-      // and the explanation is the only thing that actually teaches.
-      final explanation = item.explanation?.trim() ?? '';
-      final lines = <String>[
-        if (hint.isNotEmpty) hint,
-        if (explanation.isNotEmpty) explanation,
-        l.activityAnswerWas(item.correctOption!),
-      ].where((line) => line.isNotEmpty);
-      return _compose(l.activityWrong, lines.join('\n'), _Tone.wrong);
-    }
-    // Memory, or any card without a graded answer: a warm reply, never a
-    // verdict. A missing reply falls back to the thank-you line already shown.
-    return _compose(
-      l.activityThanks,
-      item.replyFor(index)?.trim() ?? '',
-      _Tone.open,
-    );
-  }
-
-  _Feedback _compose(String title, String body, _Tone tone) => (
-    title: title,
-    body: body,
-    spoken: body.isEmpty ? title : '$title\n$body',
-    tone: tone,
-  );
+  /// Builds the one sentence pair for the pick at [index]. The words come from
+  /// the shared rule in `state/activity_grading.dart`, which the in-chat card
+  /// uses too: the Play screen and the conversation must never grade differently.
+  ActivityFeedback _feedbackFor(L l, ActivityItem item, int index) =>
+      gradeActivity(l, item, index);
 
   void _answer(int index) {
     final item = _rotation.current;
@@ -301,11 +253,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
         ? 0
         : (measured > _maxReportedSeconds ? _maxReportedSeconds : measured);
     // Posted silently: the senior never sees a clock, the caregiver still gets
-    // an honest "how long did this take".
+    // an honest "how long did this take". A graded card also reports whether it
+    // was right, which is what earns the flower; an unanswered card reports
+    // nothing and earns nothing.
+    final chosen = _chosenIndex;
     await widget.state.finishActivity(
       activityId: item.id,
       completed: completed,
       durationSeconds: seconds,
+      correct: chosen == null ? null : item.isCorrect(chosen),
     );
   }
 
@@ -358,6 +314,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
           if (item == null && !_loading) _empty(l),
           if (item != null) ...<Widget>[
             _typeChip(l, item),
+            if (state.flowers > 0) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                l.flowersTotal(state.flowers),
+                key: const Key('activity-flowers'),
+                style: const TextStyle(
+                  fontSize: 24,
+                  color: AnchorTheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Text(
               item.title,
@@ -604,7 +572,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
           key: key,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _wrongFill,
+            color: AnchorTheme.wrongFill,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AnchorTheme.accent, width: 2),
           ),
@@ -695,8 +663,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final correct = _answered && item.isCorrect(index);
     final rejected = _answered && _chosenIndex == index && !correct;
     final fill = correct
-        ? _correctFill
-        : (rejected ? _wrongFill : AnchorTheme.surface);
+        ? AnchorTheme.correctFill
+        : (rejected ? AnchorTheme.wrongFill : AnchorTheme.surface);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnchorTheme.minTouchTarget),
       child: OutlinedButton(
@@ -744,20 +712,20 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Widget _feedbackPanel(L l, ActivityItem item) {
     final feedback = _feedbackFor(l, item, _chosenIndex!);
     final (fill, border, icon, iconColor) = switch (feedback.tone) {
-      _Tone.correct => (
-        _correctFill,
+      ActivityTone.correct => (
+        AnchorTheme.correctFill,
         AnchorTheme.primary,
         Icons.check_circle,
         AnchorTheme.primary,
       ),
-      _Tone.wrong => (
-        _wrongFill,
+      ActivityTone.wrong => (
+        AnchorTheme.wrongFill,
         AnchorTheme.accent,
         Icons.lightbulb_outline,
         AnchorTheme.accent,
       ),
-      _Tone.open => (
-        _openFill,
+      ActivityTone.open => (
+        AnchorTheme.openFill,
         AnchorTheme.border,
         Icons.favorite_border,
         AnchorTheme.primary,
@@ -820,7 +788,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
           key: const Key('activity-done'),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFE3EFE6),
+            color: AnchorTheme.correctFill,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AnchorTheme.primary, width: 2),
           ),

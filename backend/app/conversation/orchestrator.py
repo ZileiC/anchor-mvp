@@ -372,18 +372,49 @@ class ConversationOrchestrator:
             }
 
         self._write_turn(session_id, "senior", utterance)
-        anchor_turn = self._write_turn(session_id, "anchor", reply)
+        # One optional activity per chat turn (product decision 2026-11-10). It is
+        # chosen *after* the senior's sentence is stored, because the offer rules
+        # count this session's turns; the bridge sentence is appended to the
+        # model's reply, never the question itself (the app renders the card from
+        # the structured `activity` field).
+        offered = self._maybe_offer_activity(senior, session_id)
+        anchor_text = reply if offered is None else f"{reply}\n{offered['intro']}"
+        anchor_turn = self._write_turn(session_id, "anchor", anchor_text)
         self._record_observation(senior, utterance, session_id)
-        return {
+        payload = {
             "turn_id": anchor_turn,
             "transcript": utterance,
-            "reply_text": reply,
+            "reply_text": anchor_text,
             "intent": "chat",
             "action": None,
             "ask": None,
             "captions": self.captions(session_id),
             "stopped": False,
         }
+        if offered is not None:
+            payload["activity"] = offered
+        return payload
+
+    def _maybe_offer_activity(
+        self, senior: dict[str, Any], session_id: str
+    ) -> Optional[dict[str, Any]]:
+        """Ask the engine for one in-conversation activity, or None.
+
+        Only plain chat turns carry an offer: an explicit "let's play" already
+        returns the activity as a command action, and a repeat/call turn is not a
+        natural place for a card.
+        """
+        turn_number = int(
+            self.db.scalar(
+                "SELECT COUNT(*) FROM turns WHERE session_id = ? AND role = 'senior'",
+                (session_id,),
+                default=0,
+            )
+            or 0
+        )
+        return self.activities.offer_for_turn(
+            int(senior["id"]), session_id, turn_number, self._locale(senior)
+        )
 
     def _history(self, session_id: str, utterance: str) -> list[dict[str, str]]:
         rows = self.db.query(
