@@ -6,11 +6,15 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/call_helpers.dart';
+import '../../widgets/hub.dart';
 import '../../widgets/status_banner.dart';
 
 /// The weekly digest a caregiver may read: up to three approved highlights and a
 /// call action. Everything else — conversations, memories, raw observations —
 /// stays private because the backend refuses it (SPEC §4).
+///
+/// Redesign 2026-11-11: the highlights are the page; the period is a small rule
+/// above them, and the one filled action is the phone call at the bottom.
 class DigestScreen extends StatefulWidget {
   const DigestScreen({super.key, required this.state});
 
@@ -54,16 +58,23 @@ class _DigestScreenState extends State<DigestScreen> {
     final l = state.l;
     final digest = state.digests.isEmpty ? null : state.digests.first;
     final contact = state.digestContact;
+    final period = digest == null || digest.periodStart == null
+        ? null
+        : '${digest.periodStart} – ${digest.periodEnd ?? ''}';
 
     return Scaffold(
       appBar: AppBar(title: Text(l.caregiverDigestTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              if (_loading) const LinearProgressIndicator(minHeight: 8),
+              if (_loading) ...<Widget>[
+                const SizedBox(height: 6),
+                const LinearProgressIndicator(minHeight: 8),
+                const SizedBox(height: 14),
+              ],
               if (state.offline)
                 StatusBanner(
                   l: l,
@@ -79,26 +90,20 @@ class _DigestScreenState extends State<DigestScreen> {
                   onRetry: _load,
                 ),
               if (state.digestFeatureMissing)
-                Text(l.caregiverDigestUnavailable, style: AnchorTheme.reading)
+                _quiet(l.caregiverDigestUnavailable)
               else if (digest == null)
-                Text(
+                _quiet(
                   state.digestNote == 'insufficient_information'
                       ? l.caregiverInsufficient
                       : l.caregiverNoDigest,
-                  style: AnchorTheme.reading,
                 )
               else if (digest.isInsufficientData)
-                Text(l.caregiverInsufficient, style: AnchorTheme.reading)
+                _quiet(l.caregiverInsufficient)
               else ...<Widget>[
-                if (digest.periodStart != null)
-                  Text(
-                    '${digest.periodStart} – ${digest.periodEnd ?? ''}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      color: AnchorTheme.muted,
-                    ),
-                  ),
-                const SizedBox(height: 12),
+                if (period != null) ...<Widget>[
+                  HubSectionLabel(label: period),
+                  const SizedBox(height: 2),
+                ],
                 for (var index = 0; index < digest.highlights.length; index++)
                   _HighlightCard(
                     key: ValueKey<String>('highlight-$index'),
@@ -106,25 +111,18 @@ class _DigestScreenState extends State<DigestScreen> {
                     item: digest.highlights[index],
                     l: l,
                   ),
-                if (digest.highlights.isEmpty)
-                  Text(l.caregiverInsufficient, style: AnchorTheme.reading),
+                if (digest.highlights.isEmpty) _quiet(l.caregiverInsufficient),
               ],
-              const SizedBox(height: 20),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 84),
-                child: FilledButton.icon(
-                  key: const Key('caregiver-call-checkin'),
-                  onPressed: contact == null
-                      ? null
-                      : () => _callCheckIn(state, contact),
-                  icon: const Icon(Icons.phone_in_talk, size: 32),
-                  label: Text(
-                    contact == null
-                        ? l.caregiverCallCheckin
-                        : '${l.caregiverCallCheckin} · ${contact.label}',
-                    style: const TextStyle(fontSize: 26),
-                  ),
-                ),
+              const SizedBox(height: 8),
+              HubPrimaryButton(
+                key: const Key('caregiver-call-checkin'),
+                icon: Icons.phone_in_talk,
+                label: contact == null
+                    ? l.caregiverCallCheckin
+                    : '${l.caregiverCallCheckin} · ${contact.label}',
+                onPressed: contact == null
+                    ? null
+                    : () => _callCheckIn(state, contact),
               ),
               if (contact == null) ...<Widget>[
                 const SizedBox(height: 8),
@@ -133,19 +131,32 @@ class _DigestScreenState extends State<DigestScreen> {
                   style: const TextStyle(
                     fontSize: 22,
                     color: AnchorTheme.inkSoft,
+                    height: 1.4,
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              Text(
-                l.caregiverPrivacy,
-                style: const TextStyle(
-                  fontSize: 22,
-                  color: AnchorTheme.inkSoft,
-                  height: 1.4,
-                ),
-              ),
+              const SizedBox(height: 18),
+              HubFooterNote(text: l.caregiverPrivacy),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A sentence in a quiet panel, for every state where there is nothing to show
+  /// yet. Never a blank page and never an invented highlight.
+  Widget _quiet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: HubPanel(
+        tone: HubTone.ochre,
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 24,
+            color: AnchorTheme.ink,
+            height: 1.4,
           ),
         ),
       ),
@@ -168,28 +179,34 @@ class _HighlightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AnchorTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AnchorTheme.border, width: 2),
+        color: AnchorTheme.paperRaised,
+        borderRadius: BorderRadius.circular(AnchorTheme.panelRadius),
+        border: Border.all(color: AnchorTheme.line, width: 1.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AnchorTheme.primary,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE7EFE9),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Text(
               '${index + 1}',
               style: const TextStyle(
-                fontSize: 22,
-                color: AnchorTheme.onPrimary,
+                fontSize: 23,
+                fontWeight: FontWeight.w700,
+                color: AnchorTheme.jade,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,7 +216,9 @@ class _HighlightCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: AnchorTheme.accent,
+                    color: AnchorTheme.ochre,
+                    letterSpacing: 0.6,
+                    height: 1.3,
                   ),
                 ),
                 const SizedBox(height: 4),

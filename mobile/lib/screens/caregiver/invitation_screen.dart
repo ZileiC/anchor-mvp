@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
+import '../../widgets/hub.dart';
 import '../../widgets/status_banner.dart';
 
 /// Caregiver invitation acceptance: accepting creates a *pending* link only, so
 /// nothing is shared until the older adult approves (SPEC §6.1, S12).
+///
+/// Redesign 2026-11-11: the consequence is stated before the field, not after a
+/// failure, and the screen keeps a single filled action.
 class InvitationScreen extends StatefulWidget {
   const InvitationScreen({super.key, required this.state});
 
@@ -53,33 +57,32 @@ class _InvitationScreenState extends State<InvitationScreen> {
       appBar: AppBar(title: Text(l.caregiverInvite)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text(l.caregiverInvite, style: AnchorTheme.reading),
-              const SizedBox(height: 12),
+              HubNote(
+                icon: Icons.qr_code_2,
+                title: l.caregiverInvite,
+                body: l.caregiverInviteHint,
+              ),
+              const SizedBox(height: 20),
               TextField(
                 key: const Key('invitation-token-field'),
                 controller: _controller,
-                style: const TextStyle(fontSize: 24),
+                style: const TextStyle(fontSize: 26, color: AnchorTheme.ink),
                 minLines: 1,
                 maxLines: 3,
+                textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _accept(),
                 decoration: InputDecoration(labelText: l.caregiverInvite),
               ),
               const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 84),
-                child: FilledButton.icon(
-                  key: const Key('invitation-accept'),
-                  onPressed: _busy ? null : _accept,
-                  icon: const Icon(Icons.link, size: 32),
-                  label: Text(
-                    l.caregiverAccept,
-                    style: const TextStyle(fontSize: 26),
-                  ),
-                ),
+              HubPrimaryButton(
+                key: const Key('invitation-accept'),
+                icon: Icons.link,
+                label: l.caregiverAccept,
+                onPressed: _busy ? null : _accept,
               ),
               if (_busy) ...<Widget>[
                 const SizedBox(height: 16),

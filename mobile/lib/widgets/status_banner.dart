@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../l10n/strings.dart';
 import '../theme.dart';
@@ -30,11 +30,11 @@ class StatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = switch (tone) {
-      BannerTone.notice => const Color(0xFFFFF4D6),
-      BannerTone.problem => const Color(0xFFFFE3E0),
+      BannerTone.notice => const Color(0xFFF6EEDC),
+      BannerTone.problem => const Color(0xFFF6E2DE),
     };
     final borderColor = switch (tone) {
-      BannerTone.notice => const Color(0xFF8A5A00),
+      BannerTone.notice => AnchorTheme.ochre,
       BannerTone.problem => AnchorTheme.danger,
     };
     return Container(
@@ -43,7 +43,7 @@ class StatusBanner extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AnchorTheme.panelRadius),
         border: Border.all(color: borderColor, width: 2),
       ),
       child: Column(

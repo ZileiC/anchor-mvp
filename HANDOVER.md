@@ -18,6 +18,25 @@
 | `8808ce9` | 老人端首页去掉「玩一玩」入口（活动已在对话里）；停止条只在「有东西在跑」时出现，按停止后立即消失 |
 | 本文提交 | 交接文档更新（设计说明、限制、文件清单） |
 
+## 0.1 2026-11-11 补做：手机端与子女端界面重做
+
+10 号只重做了老人端，手机端/子女端当时明确「不改排版」。11 号补上，两端现在同属一套纸墨
+配色，但形状不同（老人端一个大目标，手机端一页面板）：
+
+| 文件 | 改了什么 |
+|---|---|
+| `mobile/lib/widgets/hub.dart`（新） | 手机端的零件：`HubHeader` / `HubReadout` / `HubSectionLabel` / `HubRow` / `HubPanel` / `HubNote` / `HubPrimaryButton` / `HubFooterNote` |
+| `mobile/lib/screens/setup/setup_home_screen.dart` | 手机首页：页头 + 一条"这台手机只负责设置"的淡玉说明 + AI 读数与唯一的实底主按钮 + 家人三行（邀请码/简报/问候时间）+ 记录块；原来那块紫色（`storyInk`）冒充说明卡的配色没了 |
+| `mobile/lib/screens/caregiver/caregiver_home.dart` | 家人这边：连接状态面板（已连接用淡玉底 + 实心图标，文字仍写明已连接/等待同意/还没连接）+ 三行入口 + 隐私说明 |
+| `mobile/lib/screens/caregiver/digest_screen.dart` | 本周简报：周期做小标题，三条高亮是主角，打电话是唯一实底按钮；没有简报时是一块诚实说明，不是空页 |
+| `mobile/lib/screens/caregiver/caregiver_preferences_screen.dart` | 提议问候时间：开头一句"要老人同意才生效"，时间段两个按钮，每天次数两个可选项（选中另有对勾，不只靠颜色），暂停开关，提交 |
+| `mobile/lib/screens/caregiver/invitation_screen.dart` | 输入邀请码：先讲清"接受后还要老人同意"，再是输入框与提交 |
+| `mobile/lib/widgets/status_banner.dart` | 离线/出错横幅从自编的灰黄、粉红挪回 `ochre` / `brick` 家族，圆角跟 `panelRadius` |
+| `mobile/lib/l10n/strings.dart` | 新增 3 条家人视角文案：`caregiverDailyCap`、`caregiverPausedHint`、`caregiverInviteHint`（原来那个表单借用了写给老人本人的第二人称文案，读起来人称不对） |
+
+**没有改的**：`ai_providers_screen.dart`（624 行）与 `settings_screen.dart`（932 行）仍是上一版
+分节卡片排版，只跟随了 token。这两个页面在手机上都还能打开（AI 接入 / 设置与设备）。
+
 老人端界面这一天的重做见 `docs/design/senior-ui.md`：登录页（两张大牌：老人 / 家人）、首页（一个大圆盘 + 打电话）、聊天页（紧凑字幕 + 固定底部麦克风，停止条只在该出现时出现）。
 
 ---

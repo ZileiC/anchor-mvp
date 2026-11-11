@@ -452,6 +452,11 @@ class L {
   );
   String get caregiverPrefs => t('提议问候时间', 'Propose a check-in schedule');
   String get caregiverInvite => t('输入邀请码', 'Enter invite code');
+  String get caregiverInviteHint => t(
+    '填上家人给你的邀请码。接受之后，还要等老人同意才算连接好。',
+    'Enter the invite code your family member gave you. After you accept, the '
+        'older adult still has to approve before the link is complete.',
+  );
   String get caregiverAccept => t('接受邀请', 'Accept invitation');
   String get caregiverAccepted => t(
     '邀请已接受。等老人同意后，连接就完成了。',
@@ -473,6 +478,14 @@ class L {
   String get proposalPending => t('等待老人决定', 'Waiting for a decision');
   String get proposalApproved => t('老人已同意', 'Approved');
   String get proposalRejected => t('已取消', 'Cancelled');
+  // Added 2026-11-11 with the caregiver redesign: the form needed its own
+  // labels instead of borrowing the older adult's settings wording (that copy is
+  // written in the second person to the senior, so it read wrong here).
+  String get caregiverDailyCap => t('每天问候几次', 'Check-ins per day');
+  String get caregiverPausedHint => t(
+    '打开后，老人不会收到主动问候。',
+    'When on, the older adult receives no proactive check-ins.',
+  );
   String get caregiverSettingsOnly =>
       t('设置只给老人用。', 'Settings belong to the older adult.');
 

@@ -5,6 +5,7 @@ import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
+import '../../widgets/hub.dart';
 import '../../widgets/status_banner.dart';
 import 'caregiver_preferences_screen.dart';
 import 'digest_screen.dart';
@@ -13,6 +14,9 @@ import 'invitation_screen.dart';
 /// Caregiver home: connection and consent status, and the three things a family
 /// member may do — read an approved digest, call to check in, propose a schedule.
 /// No monitoring feed, no conversation history, no location, no scores.
+///
+/// Redesign 2026-11-11: same panel vocabulary as the phone's setup hub, so a
+/// family member meets one app whichever device is in front of them.
 class CaregiverHomeScreen extends StatelessWidget {
   const CaregiverHomeScreen({super.key, required this.state});
 
@@ -28,32 +32,21 @@ class CaregiverHomeScreen extends StatelessWidget {
     final pending = live.relationships
         .where((relationship) => relationship.isPending)
         .toList();
+    final name = live.displayName;
 
     return Scaffold(
       appBar: AppBar(title: Text(l.caregiverTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text(
-                l.caregiverStatus,
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  color: AnchorTheme.ink,
-                ),
+              HubHeader(
+                eyebrow: l.caregiverStatus,
+                title: name.isEmpty ? l.caregiverTitle : name,
               ),
-              const SizedBox(height: 8),
-              Text(
-                live.displayName.isEmpty ? l.caregiverTitle : live.displayName,
-                style: const TextStyle(
-                  fontSize: 24,
-                  color: AnchorTheme.inkSoft,
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               if (live.offline)
                 StatusBanner(
                   l: l,
@@ -68,58 +61,45 @@ class CaregiverHomeScreen extends StatelessWidget {
                   title: live.lastErrorText ?? l.unknownError,
                   onRetry: live.refresh,
                 ),
-              _statusCard(context, l, live, accepted, pending),
-              const SizedBox(height: 16),
-              _action(
-                context,
+              _statusPanel(l, accepted, pending),
+              const SizedBox(height: 18),
+              HubSectionLabel(label: l.setupFamilyTitle),
+              HubRow(
                 key: const Key('caregiver-digest'),
                 icon: Icons.summarize,
                 label: l.caregiverDigest,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => DigestScreen(state: live),
-                  ),
-                ),
+                onTap: () => _open(context, DigestScreen(state: live)),
               ),
-              _action(
-                context,
+              const SizedBox(height: 12),
+              HubRow(
                 key: const Key('caregiver-prefs'),
                 icon: Icons.event_note,
                 label: l.caregiverPrefs,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CaregiverPreferencesScreen(state: live),
-                  ),
-                ),
+                onTap: () =>
+                    _open(context, CaregiverPreferencesScreen(state: live)),
               ),
-              _action(
-                context,
+              const SizedBox(height: 12),
+              HubRow(
                 key: const Key('caregiver-invite'),
                 icon: Icons.qr_code_2,
                 label: l.caregiverInvite,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => InvitationScreen(state: live),
-                  ),
+                onTap: () => _open(context, InvitationScreen(state: live)),
+              ),
+              const SizedBox(height: 18),
+              HubPanel(
+                tone: HubTone.plain,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[HubFooterNote(text: l.caregiverPrivacy)],
                 ),
               ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const Key('caregiver-refresh'),
-                onPressed: live.refresh,
-                icon: const Icon(Icons.refresh, size: 28),
-                label: Text(
-                  l.settingsRefresh,
-                  style: const TextStyle(fontSize: 24),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                l.caregiverPrivacy,
-                style: const TextStyle(
-                  fontSize: 22,
-                  color: AnchorTheme.inkSoft,
-                  height: 1.4,
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  key: const Key('caregiver-refresh'),
+                  onPressed: live.refresh,
+                  icon: const Icon(Icons.refresh, size: 24),
+                  label: Text(l.settingsRefresh),
                 ),
               ),
             ],
@@ -129,17 +109,24 @@ class CaregiverHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _statusCard(
-    BuildContext context,
+  void _open(BuildContext context, Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
+
+  /// One panel that answers "am I connected to my family member?" in a word.
+  ///
+  /// Colour is a second signal only: the title itself says 已连接 / 等待同意 /
+  /// 还没有连接, so it still reads correctly in greyscale.
+  Widget _statusPanel(
     L l,
-    AppState state,
     List<Relationship> accepted,
     List<Relationship> pending,
   ) {
+    final bool connected = accepted.isNotEmpty;
     final String title;
     final String detail;
     final IconData icon;
-    if (accepted.isNotEmpty) {
+    if (connected) {
       final name = accepted.first.counterpartName;
       title = name == null
           ? l.settingsRelAccepted
@@ -157,20 +144,36 @@ class CaregiverHomeScreen extends StatelessWidget {
     }
     return Container(
       key: const Key('caregiver-status'),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AnchorTheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: connected ? const Color(0xFFE7EFE9) : AnchorTheme.paperRaised,
+        borderRadius: BorderRadius.circular(AnchorTheme.panelRadius),
         border: Border.all(
-          color: accepted.isNotEmpty ? AnchorTheme.primary : AnchorTheme.border,
+          color: connected ? AnchorTheme.jade : AnchorTheme.line,
           width: 2,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, size: 34, color: AnchorTheme.primary),
-          const SizedBox(width: 12),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: connected ? AnchorTheme.jade : AnchorTheme.paper,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: connected ? AnchorTheme.jade : AnchorTheme.line,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 28,
+              color: connected ? AnchorTheme.onPrimary : AnchorTheme.inkSoft,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,9 +181,10 @@ class CaregiverHomeScreen extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: 27,
                     fontWeight: FontWeight.w700,
                     color: AnchorTheme.ink,
+                    height: 1.25,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -196,34 +200,6 @@ class CaregiverHomeScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _action(
-    BuildContext context, {
-    required Key key,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Semantics(
-        button: true,
-        label: label,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 84),
-          child: OutlinedButton.icon(
-            key: key,
-            onPressed: onTap,
-            icon: Icon(icon, size: 32),
-            label: Text(
-              label,
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
       ),
     );
   }
