@@ -1,12 +1,10 @@
-import 'package:anchor_app/app.dart';
-import 'package:anchor_app/l10n/strings.dart';
+﻿import 'package:anchor_app/l10n/strings.dart';
 import 'package:anchor_app/models/models.dart';
 import 'package:anchor_app/platform_policy.dart';
 import 'package:anchor_app/screens/senior/ai_providers_screen.dart';
 import 'package:anchor_app/services/api_client.dart';
 import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/state/app_state.dart';
-import 'package:anchor_app/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -263,7 +261,13 @@ void main() {
       },
     );
 
-    testWidgets('the caregiver cannot open AI settings', (tester) async {
+    testWidgets('a caregiver on the phone configures the AI as well', (
+      tester,
+    ) async {
+      // Decided 2026-11-11: the model and the speech service are device
+      // configuration the family sets up with the older adult, not the older
+      // adult's private data. The phone's hub already offers the entry, so it
+      // must not be a dead button.
       api.asCaregiver();
       await pumpSignedIn(
         tester,
@@ -273,19 +277,36 @@ void main() {
       );
       expect(find.byKey(const Key('settings-ai-entry')), findsNothing);
 
-      // Even a hand-built route refuses to act for a caregiver.
-      await tester.pumpWidget(
-        AnchorScope(
-          state: state,
-          child: MaterialApp(
-            theme: AnchorTheme.build(),
-            home: AiProvidersScreen(state: state),
-          ),
-        ),
+      await tester.ensureVisible(find.byKey(const Key('setup-ai')));
+      await tester.tap(find.byKey(const Key('setup-ai')));
+      await settle(tester);
+
+      expect(find.byType(AiProvidersScreen), findsOneWidget);
+      expect(find.byKey(const Key('ai-llm-save')), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('ai-llm-base-url')));
+      await tester.enterText(
+        find.byKey(const Key('ai-llm-base-url')),
+        'https://api.deepseek.com',
       );
-      await tester.pump();
-      expect(find.text(L.zh.aiProvidersSeniorOnly), findsOneWidget);
-      expect(find.byKey(const Key('ai-llm-save')), findsNothing);
+      await tester.enterText(
+        find.byKey(const Key('ai-llm-key')),
+        'sk-test-123456',
+      );
+      await tester.enterText(
+        find.byKey(const Key('ai-llm-model')),
+        'deepseek-flash',
+      );
+      await tester.ensureVisible(find.byKey(const Key('ai-llm-save')));
+      await tester.tap(find.byKey(const Key('ai-llm-save')));
+      await settle(tester);
+
+      expect(api.providerUpdates, hasLength(1));
+      expect(api.providerUpdates.single.llm!.toJson(), <String, Object?>{
+        'base_url': 'https://api.deepseek.com',
+        'api_key': 'sk-test-123456',
+        'model': 'deepseek-flash',
+      });
 
       await disposeApp(tester);
     });

@@ -37,6 +37,28 @@
 **没有改的**：`ai_providers_screen.dart`（624 行）与 `settings_screen.dart`（932 行）仍是上一版
 分节卡片排版，只跟随了 token。这两个页面在手机上都还能打开（AI 接入 / 设置与设备）。
 
+### 0.1.1 同一天修的授权错误：AI 接入是「设备配置」，不是老人的隐私
+
+10 号我把 `/providers` 三个接口都挂在 `require_senior` 上，同时又让手机端当「家人配置端」——
+两句话是打架的，结果是**没人能配 AI**：电脑端没有设置页（10 号的设计），手机端家人账号被后端 403，
+只剩「用老人账号登录手机自己填 API 密钥」这一条路，而那不是这个应用该让 85 岁老人做的事。
+
+11 号改对了，判断依据是「这是谁的私事」：
+
+| 事情 | 谁可以动 | 依据 |
+|---|---|---|
+| 模型 / 语音识别 / 密钥（`GET`·`PUT`·`POST /providers`） | 老人 **或已连接的家人** | 设备配置，家人和老人一起在手机端设定；与隐私无关 |
+| 同意事项、记忆、聊天、简报刊发、撤销家人、删数据 | 只有老人 | 这些才是老人的私事（`require_senior` 不变） |
+
+- 后端：`api/deps.py` 新增 `require_setup_access`（老人直接放行；家人必须有一条 `accepted`
+  的关系，没有连上的账号仍然 403 `forbidden`），`providers.py` 三个路由改用它。
+- 前端：`ai_providers_screen.dart` 去掉「由老人管理」那页，家人登录也能读写；`AppState._loadCaregiver()`
+  会一并 `loadProviders()`，所以手机首页的 AI 读数和 AI 页对两种账号都是真的。
+- 文案：`aiProvidersSeniorOnly` 整条删掉——它现在是假话。
+- 测试：后端 `test_a_linked_caregiver_may_configure_the_providers` /
+  `test_an_unlinked_caregiver_cannot_configure_the_providers`；前端
+  「a caregiver on the phone configures the AI as well」（真的填三个字段并保存，断言 PUT 内容）。
+
 老人端界面这一天的重做见 `docs/design/senior-ui.md`：登录页（两张大牌：老人 / 家人）、首页（一个大圆盘 + 打电话）、聊天页（紧凑字幕 + 固定底部麦克风，停止条只在该出现时出现）。
 
 ---
@@ -282,10 +304,13 @@ curl.exe -H "Authorization: Bearer <senior-token>" http://127.0.0.1:8077/api/v1/
 8. **文案一致性**：`scripts/package_windows.ps1` 生成的 `README-DEMO.txt` 已在 2026-11-10 更新为「电脑上没有设置界面，配置在家人手机上」；`mobile/README-android.md` 的「Android 语音路径」整节写的是 11-10 之前的设计（手机已不做语音），读到时以本文为准。
 9. **没有真机验证**：本机没有 Android 设备/模拟器，手机端只经过 widget 测试和静态分析，没有在真机上点过一遍（连不上后端、防火墙、字体渲染都未验证）。
 10. **「玩一玩」独立页面仍在代码里，但已无入口**：`activity_screen.dart` 保留（判分规则与测试都在里面，Play 的判分逻辑和聊天内卡片共用 `state/activity_grading.dart`），首页不再有它的入口；如果后续确认不需要，可以整页删除并迁移相关测试。
-11. **家人账号不能改 AI 配置**：后端 `/providers` 是 `require_senior`，家人账号在手机上点「AI 接入」会看到「由老人管理」。演示时用老人账号（1）登录手机配置即可；要放开需要改后端授权（产品决策）。
+11. ~~**家人账号不能改 AI 配置**~~ **已于 2026-11-11 修好**（见 §0.1.1）：老人或已连接的家人
+    都能在手机上配 AI；只有未连上的家人账号会拿到 403。其余隐私接口仍是老人专属。
 12. **ASR 供应商延迟会抖**：SiliconFlow 的 Qwen3-ASR 平时 0.5–0.9 s，但同一网络下曾出现 15–43 s 的尖峰（同一音频不同时刻）。适配器超时 20 s，超时就 503。演示前建议现场先用手机/电脑跑一次识别，确认当时的速度。
 13. **TTS 走微软 Edge 的公共接口**：无 SLA，限流或改协议时会退回 Windows 系统语音（机械音，但有声）。每次合成 3–7 s，说完到出声之间有这段等待。
-14. **格式检查**：`dart format --set-exit-if-changed` 在 `mobile/lib/services/android_tts_speaker.dart`、`mobile/test/android_tts_speaker_test.dart` 两个历史文件上仍报格式差异，所以 `scripts/verify.ps1` 的格式步骤会因此报红——与本轮改动无关，`flutter analyze` 与全部测试是绿的。
+14. **格式检查**：`dart format --set-exit-if-changed` 在 10 号曾在
+    `mobile/lib/services/android_tts_speaker.dart`、`mobile/test/android_tts_speaker_test.dart`
+    上报差异；11 号已整仓 format 过，`scripts/verify.ps1` 的格式步骤现在是绿的（`dart format` 0 changed）。
 
 ---
 

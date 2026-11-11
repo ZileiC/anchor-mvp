@@ -351,6 +351,10 @@ class AppState extends ChangeNotifier {
     await loadDigests();
     await loadContacts();
     await loadProposals();
+    // The family sets the AI up with the older adult on the phone (2026-11-11),
+    // so a caregiver reads the provider status too — the hub's read-out and the
+    // AI screen would otherwise claim "not loaded" forever.
+    await loadProviders();
   }
 
   // -- individual loaders --------------------------------------------------

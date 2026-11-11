@@ -315,10 +315,9 @@ class L {
     'Connect a real chat model and speech recognition. Without them the app '
         'still works, but replies are offline templates and speech is never faked.',
   );
-  String get aiProvidersSeniorOnly => t(
-    '由老人管理。家人不能修改 AI 接入。',
-    'Managed by the older adult. Family members cannot change AI settings.',
-  );
+  // Removed 2026-11-11: `aiProvidersSeniorOnly` ("Managed by the older adult.
+  // Family members cannot change AI settings.") is no longer true — the family
+  // sets the AI up with the older adult on the phone.
   String get aiLlmSection => t('对话模型（DeepSeek）', 'Chat model (DeepSeek)');
   String get aiLlmHint => t(
     '填入 DeepSeek 的地址和密钥后，回复就来自真的模型。密钥只保存在本机后台。',

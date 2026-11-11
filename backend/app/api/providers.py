@@ -1,4 +1,4 @@
-"""Provider settings endpoints: read, configure, and really test the providers.
+﻿"""Provider settings endpoints: read, configure, and really test the providers.
 
 ``GET`` / ``PUT`` expose what the Settings screen needs and never the API key
 (only a ``key_hint``). ``PUT`` persists the singleton row and rebuilds the live
@@ -27,7 +27,7 @@ from ..providers.config import (
     resolve_llm,
     update_provider_settings,
 )
-from .deps import get_context, require_senior
+from .deps import get_context, require_setup_access
 
 router = APIRouter(tags=["providers"])
 
@@ -79,7 +79,7 @@ def _error_text(exc: AppError) -> str:
 
 @router.get("/providers")
 def get_providers(
-    user: dict[str, Any] = Depends(require_senior),
+    user: dict[str, Any] = Depends(require_setup_access),
     ctx=Depends(get_context),
 ) -> dict[str, Any]:
     return describe_providers(ctx.settings, load_provider_settings(ctx.db))
@@ -88,7 +88,7 @@ def get_providers(
 @router.put("/providers")
 def put_providers(
     body: ProvidersIn,
-    user: dict[str, Any] = Depends(require_senior),
+    user: dict[str, Any] = Depends(require_setup_access),
     ctx=Depends(get_context),
 ) -> dict[str, Any]:
     changes: dict[str, Any] = {}
@@ -191,7 +191,7 @@ def _probe_asr(ctx, body: ProviderTestIn) -> dict[str, Any]:
 @router.post("/providers/test")
 def test_providers(
     body: ProviderTestIn = ProviderTestIn(),
-    user: dict[str, Any] = Depends(require_senior),
+    user: dict[str, Any] = Depends(require_setup_access),
     ctx=Depends(get_context),
 ) -> dict[str, Any]:
     return {"llm": _probe_llm(ctx), "asr": _probe_asr(ctx, body)}

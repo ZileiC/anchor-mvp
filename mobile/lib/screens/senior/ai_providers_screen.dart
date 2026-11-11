@@ -327,17 +327,10 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     if (!state.policy.setupApp) {
       return ClosedOnDevice(message: l.setupNotOnComputer);
     }
-    if (!state.isSenior) {
-      return Scaffold(
-        appBar: AppBar(title: Text(l.aiProvidersTitle)),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(l.aiProvidersSeniorOnly, style: AnchorTheme.reading),
-          ),
-        ),
-      );
-    }
+    // Both roles configure it, 2026-11-11: which model and which speech service
+    // the appliance dials is device configuration the family sets up with the
+    // older adult, not the older adult's private data (that is consents,
+    // memories and what gets shared, and those stay senior-only).
     return AnchorScaffold(
       state: state,
       title: l.aiProvidersTitle,

@@ -313,6 +313,13 @@ Indexes: `relationships(senior_id)`, `observations(senior_id, event_date)`,
   digest content, and the senior's saved contact for the digest call action. Conversations, turns,
   memories, raw observations, preferences details, and private digests → 403
   `caregiver_scope_denied`.
+- **Exception, 2026-11-11 (decided with the product owner): `GET`/`PUT`/`POST /providers` is device
+  configuration, not the older adult's private data.** A caregiver with an `accepted` relationship may
+  read and change the model and speech-recognition settings, because the family sets those up with the
+  older adult on the phone at first run — and the Windows appliance deliberately has no settings screen,
+  so the phone is the only place they can be configured at all. Backend: `api/deps.py`
+  `require_setup_access` (senior, or caregiver with an accepted link; an unlinked caregiver still gets
+  403). Everything else in the list above stays read-only for caregivers.
 - Audit every consent change, revocation, approval, deletion, call initiation, digest delivery.
 
 ## 5. Consent engine (shared enforcement service)

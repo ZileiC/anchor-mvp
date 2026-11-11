@@ -57,7 +57,35 @@ def test_providers_endpoints_require_a_token(client):
     assert client.post("/api/v1/providers/test", json={}).status_code == 401
 
 
-def test_providers_endpoints_are_senior_only(client, caregiver_token):
+def test_a_linked_caregiver_may_configure_the_providers(
+    client, caregiver_token, linked
+):
+    """AI 接入 is device configuration the family sets up (2026-11-11).
+
+    The older adult's privacy is consents, memories, conversations and what gets
+    shared — not which model string the appliance dials. A connected family
+    member configures it on the phone, so all three verbs work for them.
+    """
+    assert (
+        client.get("/api/v1/providers", headers=headers(caregiver_token)).status_code
+        == 200
+    )
+    saved = _configure_llm(client, caregiver_token, model="deepseek-flash")
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["llm"]["configured"] is True
+    assert saved.json()["llm"]["model"] == "deepseek-flash"
+    assert (
+        client.post(
+            "/api/v1/providers/test", json={}, headers=headers(caregiver_token)
+        ).status_code
+        == 200
+    )
+
+
+def test_an_unlinked_caregiver_cannot_configure_the_providers(
+    client, caregiver_token
+):
+    # An account with no accepted link is a stranger with a token.
     for response in (
         client.get("/api/v1/providers", headers=headers(caregiver_token)),
         _put(client, caregiver_token, {"llm": {"model": "x"}}),
