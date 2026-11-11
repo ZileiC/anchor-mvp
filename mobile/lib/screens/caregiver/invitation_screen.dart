@@ -102,7 +102,11 @@ class _InvitationScreenState extends State<InvitationScreen> {
                   l: l,
                   tone: BannerTone.problem,
                   title: l.caregiverInvalid,
-                  body: state.lastErrorText,
+                  // The server words the same refusal the same way; printing it
+                  // again under itself is just noise.
+                  body: state.lastErrorText == l.caregiverInvalid
+                      ? null
+                      : state.lastErrorText,
                   onRetry: _accept,
                 ),
               ],
