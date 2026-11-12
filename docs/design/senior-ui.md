@@ -115,6 +115,31 @@ Anchor
 3. 颜色不是唯一通道：连接状态、选项选中、简报状态都另有文字或对勾。
 4. 没做的东西就写"还没做"，例如审计记录仍只在电脑端（首页记录块照旧这么说）。
 
-**还没改的**：AI 接入页（`ai_providers_screen.dart`，624 行）与设置与设备页
-（`settings_screen.dart`，932 行）仍是上一版的分节卡片排版；它们用的是旧 token
-（配色已跟随），但排版没有按第五节重做。
+**AI 接入页与设置页（2026-11-12 补做）**：两页都换成了同一套零件——分节卡片
+（`SectionCard`，16 圆角）改成 `HubPanel`（20 圆角），AI 页的状态行改成读数条
+（淡玉底 + 玉色描边 + 一个勾，文字仍是「状态：已接入 · http」），每块只有一个实底主按钮
+（保存），测试连接与清除降为次要按钮；设置页把原来十张一模一样的卡片分成三组，加
+`HubSectionLabel` 组标题：**问候与说话方式** / **允许它做的事** / **家人与记录**；
+"慢一点 / 正常 / 中文 / English"这类选项从"淡绿底 + 绿描边"改成"玉色实底 + 白字 + 对勾"
+（三个信号，不只靠颜色）。
+
+顺带修掉一个真实缺陷：`HubPanel` 是有底色的 `DecoratedBox`，里面的 `SwitchListTile` /
+`ListTile` 会因此画不出墨迹（Flutter 自己会报 "ListTile background color or ink splashes
+may be invisible"）。`HubPanel` 现在在内容和底色之间垫了一层透明 `Material`，所以任何
+开关、可点行放进面板都正常。
+
+## 六、图标与 logo（2026-11-12）
+
+一个源文件，一条命令：`docs/assets/anchor-logo.png`（512 px，玉色碗 + 三道声波，暖石纸底）→
+`python scripts/make_icons.py`，写出：
+
+| 输出 | 用途 |
+|---|---|
+| `mobile/assets/images/anchor-logo.png` | 登录页的 logo（`Image.asset`，104 px） |
+| `mobile/android/.../mipmap-*/ic_launcher.png` | Android 桌面图标（mdpi 48 → xxxhdpi 192） |
+| `mobile/android/.../drawable-nodpi/launch_image.png` | Android 启动屏中间的那一枚（320 px） |
+| `mobile/windows/runner/resources/app_icon.ico` | Windows 程序图标（16/24/32/48/64/128/256） |
+
+桌面图标与 .ico 会先按字形裁一遍（四周留 10% 余量），所以标志填满图标；应用内的 logo
+保留原始构图。启动屏与 `NormalTheme` 的窗口底色都是 `#F2EFE4`（`res/values/colors.xml`
+的 `anchor_paper`），启动过程不再是白闪。

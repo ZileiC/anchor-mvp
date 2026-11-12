@@ -37,6 +37,27 @@
 **没有改的**：`ai_providers_screen.dart`（624 行）与 `settings_screen.dart`（932 行）仍是上一版
 分节卡片排版，只跟随了 token。这两个页面在手机上都还能打开（AI 接入 / 设置与设备）。
 
+### 0.1.2 2026-11-12：这两页也重排了，并且把 logo 接进两端
+
+| 文件 | 改了什么 |
+|---|---|
+| `mobile/lib/screens/senior/ai_providers_screen.dart` | 分节卡片 → `HubPanel`；状态行改成读数条（淡玉底 + 勾 + 文字）；每块只留一个实底「保存」，测试连接/清除降为次要；修掉家人账号打开该页时字段读不出来的旧守卫（`if (!_state.isSenior) return;`） |
+| `mobile/lib/screens/senior/settings_screen.dart` | 十张一样的卡片分成三组，加 `HubSectionLabel` 组标题（问候与说话方式 / 允许它做的事 / 家人与记录）；"慢一点/正常/中文/English" 选项改成玉色实底 + 白字 + 对勾；时间按钮统一 26 px / 64 px 高 |
+| `mobile/lib/widgets/hub.dart` | `HubPanel` 在内容与底色之间垫一层透明 `Material`：否则面板里的 `SwitchListTile`/`ListTile` 画不出墨迹（Flutter 会直接报错，11-12 的测试抓到的） |
+| `mobile/lib/l10n/strings.dart` | 新增 3 条分组标题：`settingsGroupVoice` / `settingsGroupPermissions` / `settingsGroupRecords` |
+| `scripts/make_icons.py`（新） | logo → 全部图标的唯一流水线：应用内 logo、Android 各密度桌面图标、Android 启动屏图、Windows `.ico`（七个尺寸） |
+| `mobile/assets/images/anchor-logo.png`、`mobile/android/**/ic_launcher.png`、`drawable-nodpi/launch_image.png`、`mobile/windows/runner/resources/app_icon.ico` | 生成产物；`pubspec.yaml` 增加 `assets:` 段 |
+| `mobile/lib/screens/login_screen.dart` | 登录页原来那个 Material `anchor` 图标换成真 logo（104 px），下面仍是「安心陪伴 + 一句话」 |
+| Android `launch_background.xml`（两版）、`values*/styles.xml`、新增 `values/colors.xml` | 启动屏与窗口底色统一成 `#F2EFE4`，中间是 logo，不再是白闪 + 系统主题色 |
+
+图标怎么重生：`python scripts/make_icons.py`（用它自带的 Pillow；Windows 上
+`C:\Users\<你>\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe`）。
+换 logo 只需要替换 `docs/assets/anchor-logo.png` 再跑一次。
+
+**还是没做的**：Android 的 `android:label` 仍是 `anchor_app`（桌面图标下面的名字），没改成
+中文名——改它属于产品命名决定。Windows 窗口标题同理（`windows/runner/main.cpp` 里写死的
+`anchor_app`）。
+
 ### 0.1.1 同一天修的授权错误：AI 接入是「设备配置」，不是老人的隐私
 
 10 号我把 `/providers` 三个接口都挂在 `require_senior` 上，同时又让手机端当「家人配置端」——

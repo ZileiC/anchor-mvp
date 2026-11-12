@@ -7,6 +7,7 @@ import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/closed_on_device.dart';
+import '../../widgets/hub.dart';
 
 /// Settings → “AI 接入（模型/语音）”.
 ///
@@ -62,7 +63,8 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    if (!_state.isSenior) return;
+    // Both roles configure this (2026-11-11): a caregiver who sets the appliance
+    // up needs the saved endpoint and model in the fields, not empty boxes.
     await _state.loadProviders();
     if (!mounted) return;
     setState(() {
@@ -353,7 +355,7 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     final statusLabel = section == null
         ? l.aiStatusUnknown
         : (configured ? l.aiStatusHttp : l.aiStatusOfflineLlm);
-    return SectionCard(
+    return HubPanel(
       title: l.aiLlmSection,
       hint: l.aiLlmHint,
       icon: Icons.smart_toy_outlined,
@@ -437,17 +439,18 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
               failed: _llmTestFailed,
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+          HubPrimaryButton(
+            key: const Key('ai-llm-save'),
+            icon: Icons.save_outlined,
+            label: l.save,
+            onPressed: _llmBusy ? null : _saveLlm,
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: <Widget>[
-              FilledButton.icon(
-                key: const Key('ai-llm-save'),
-                onPressed: _llmBusy ? null : _saveLlm,
-                icon: const Icon(Icons.save_outlined, size: 26),
-                label: Text(l.save, style: const TextStyle(fontSize: 24)),
-              ),
               OutlinedButton.icon(
                 key: const Key('ai-llm-test'),
                 onPressed: _llmTesting ? null : _testLlm,
@@ -472,7 +475,7 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
   // -- ASR -----------------------------------------------------------------
   Widget _asrCard(L l, AppState state, ProviderSectionStatus? section) {
     final engineLabel = _asrEngineLabel(l, section);
-    return SectionCard(
+    return HubPanel(
       title: l.aiAsrSection,
       hint: l.aiAsrHint,
       icon: Icons.mic_none_outlined,
@@ -542,17 +545,18 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
               failed: _asrTestFailed,
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+          HubPrimaryButton(
+            key: const Key('ai-asr-save'),
+            icon: Icons.save_outlined,
+            label: l.save,
+            onPressed: _asrBusy ? null : _saveAsr,
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: <Widget>[
-              FilledButton.icon(
-                key: const Key('ai-asr-save'),
-                onPressed: _asrBusy ? null : _saveAsr,
-                icon: const Icon(Icons.save_outlined, size: 26),
-                label: Text(l.save, style: const TextStyle(fontSize: 24)),
-              ),
               OutlinedButton.icon(
                 key: const Key('ai-asr-test'),
                 onPressed: _asrTesting ? null : _testAsr,
@@ -604,28 +608,42 @@ class _AiProvidersScreenState extends State<AiProvidersScreen> {
     required String label,
     required bool good,
   }) {
-    final color = good ? AnchorTheme.primary : AnchorTheme.muted;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Icon(
-          good ? Icons.check_circle : Icons.info_outline,
-          size: 28,
-          color: color,
+    // A read-out strip, not a sentence lost in the body: this is the one line
+    // that says whether the appliance can really reach the model. Green ink and
+    // a tick only ever appear together with the words 已接入 / 未配置.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: good ? const Color(0xFFE7EFE9) : AnchorTheme.paper,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: good ? AnchorTheme.jade : AnchorTheme.line,
+          width: 1.5,
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '${l.aiStatusLine}：$label',
-            key: key,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: color,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            good ? Icons.check_circle : Icons.info_outline,
+            size: 26,
+            color: good ? AnchorTheme.jade : AnchorTheme.inkSoft,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${l.aiStatusLine}：$label',
+              key: key,
+              style: TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w600,
+                color: good ? AnchorTheme.jadeDeep : AnchorTheme.ink,
+                height: 1.3,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

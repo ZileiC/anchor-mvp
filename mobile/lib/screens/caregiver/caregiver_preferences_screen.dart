@@ -130,31 +130,25 @@ class _CaregiverPreferencesScreenState
               const SizedBox(height: 20),
               HubPanel(
                 tone: HubTone.plain,
-                child: Material(
-                  // The tinted panel is a DecoratedBox, so the tile needs its own
-                  // Material or its ink and background never paint (and the
-                  // framework says so out loud in debug).
-                  type: MaterialType.transparency,
-                  child: SwitchListTile(
-                    key: const Key('propose-paused'),
-                    value: _paused,
-                    onChanged: (value) => setState(() => _paused = value),
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      l.settingsPause,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        color: AnchorTheme.ink,
-                      ),
+                child: SwitchListTile(
+                  key: const Key('propose-paused'),
+                  value: _paused,
+                  onChanged: (value) => setState(() => _paused = value),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    l.settingsPause,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: AnchorTheme.ink,
                     ),
-                    subtitle: Text(
-                      l.caregiverPausedHint,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        color: AnchorTheme.inkSoft,
-                        height: 1.35,
-                      ),
+                  ),
+                  subtitle: Text(
+                    l.caregiverPausedHint,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      color: AnchorTheme.inkSoft,
+                      height: 1.35,
                     ),
                   ),
                 ),

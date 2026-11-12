@@ -392,7 +392,11 @@ class HubPanel extends StatelessWidget {
             ],
             const SizedBox(height: 14),
           ],
-          child,
+          // The panel is a tinted DecoratedBox, and a ListTile/SwitchListTile
+          // inside one paints its ink on the nearest Material ancestor or not at
+          // all. This transparency is that ancestor, so switches, tiles and ink
+          // splashes work inside a panel.
+          Material(type: MaterialType.transparency, child: child),
         ],
       ),
     );

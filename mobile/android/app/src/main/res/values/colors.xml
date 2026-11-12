@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Anchor's paper ground. The launch screen, the in-app background and the
+         launcher icon all sit on this same colour (mobile/lib/theme.dart
+         AnchorTheme.paper), so starting the app is not a white flash. -->
+    <color name="anchor_paper">#F2EFE4</color>
+</resources>

@@ -122,27 +122,42 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _wordmark(L l) {
-    // Wrap, not Row: at 1.3x text the three pieces no longer fit a 390 px phone
-    // and a Row would clip the tagline.
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 10,
-      runSpacing: 4,
+    // The real mark (a bowl with three sound waves) instead of a Material anchor
+    // icon, 2026-11-12. It is the same file the launcher and the Windows icon are
+    // generated from, so the app looks like itself everywhere.
+    //
+    // Wrap, not Row, for the two pieces of text: at 1.3x text they no longer fit
+    // a 390 px phone and a Row would clip the tagline.
+    return Column(
       children: <Widget>[
-        const Icon(Icons.anchor, size: 42, color: AnchorTheme.jade),
-        Text(
-          l.appName,
-          style: const TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: AnchorTheme.jade,
-            letterSpacing: 0.5,
-          ),
+        Image.asset(
+          'assets/images/anchor-logo.png',
+          width: 104,
+          height: 104,
+          filterQuality: FilterQuality.high,
+          semanticLabel: l.appName,
         ),
-        Text(
-          l.tagline,
-          style: const TextStyle(fontSize: 22, color: AnchorTheme.inkSoft),
+        const SizedBox(height: 10),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 10,
+          runSpacing: 4,
+          children: <Widget>[
+            Text(
+              l.appName,
+              style: const TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w700,
+                color: AnchorTheme.jade,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              l.tagline,
+              style: const TextStyle(fontSize: 22, color: AnchorTheme.inkSoft),
+            ),
+          ],
         ),
       ],
     );

@@ -225,6 +225,12 @@ class L {
 
   // -- settings -------------------------------------------------------------
   String get settingsTitle => t('设置', 'Settings');
+  // Group headings, added 2026-11-12 with the settings redesign: ten
+  // undifferentiated cards in a row was the actual problem — nothing told the
+  // reader where one kind of decision ended and the next began.
+  String get settingsGroupVoice => t('问候与说话方式', 'Check-ins and voice');
+  String get settingsGroupPermissions => t('允许它做的事', 'What it may do');
+  String get settingsGroupRecords => t('家人与记录', 'Family and records');
   String get settingsGreeting => t('问候时间', 'Greeting window');
   String get settingsFrom => t('从', 'From');
   String get settingsTo => t('到', 'To');

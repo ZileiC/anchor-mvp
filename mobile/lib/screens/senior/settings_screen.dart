@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
+import '../../widgets/hub.dart';
 import '../../widgets/closed_on_device.dart';
 import '../../widgets/status_banner.dart';
 import '../../widgets/time_picker_dialog.dart';
@@ -97,11 +98,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: state.lastErrorText ?? l.unknownError,
               onRetry: state.refresh,
             ),
+          HubSectionLabel(label: l.settingsGroupVoice),
           _scheduleSection(l, state, prefs),
           _voiceSection(l, state, prefs),
           _aiSection(l, state),
+          const SizedBox(height: 6),
+          HubSectionLabel(label: l.settingsGroupPermissions),
           _consentSection(l, state),
           _sharingSection(l, state),
+          const SizedBox(height: 6),
+          HubSectionLabel(label: l.settingsGroupRecords),
           _proposalsSection(l, state),
           _memorySection(l, state),
           _digestSection(l, state),
@@ -115,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // -- schedule ------------------------------------------------------------
   Widget _scheduleSection(L l, AppState state, Preferences prefs) {
     final plan = state.nextReminder;
-    return SectionCard(
+    return HubPanel(
       title: l.settingsGreeting,
       icon: Icons.wb_sunny_outlined,
       child: Column(
@@ -246,17 +252,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnchorTheme.minTouchTarget),
-      child: OutlinedButton(
+      child: OutlinedButton.icon(
         key: key,
         onPressed: onTap,
-        child: Text(label, style: const TextStyle(fontSize: 24)),
+        icon: const Icon(Icons.schedule, size: 24),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(AnchorTheme.minTouchTarget, 64),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          textStyle: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AnchorTheme.buttonRadius),
+          ),
+        ),
       ),
     );
   }
 
   // -- voice, replies, language -------------------------------------------
   Widget _voiceSection(L l, AppState state, Preferences prefs) {
-    return SectionCard(
+    return HubPanel(
       title: l.settingsPace,
       icon: Icons.volume_up_outlined,
       child: Column(
@@ -347,7 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'fake' => l.aiAsrEngineFake,
             _ => l.aiAsrEngineNone,
           };
-    return SectionCard(
+    return HubPanel(
       title: l.aiProvidersTitle,
       icon: Icons.smart_toy_outlined,
       hint: l.aiProvidersEntryHint,
@@ -390,6 +405,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    // Selected is a filled jade plate with white text and a tick: three signals,
+    // so it still reads on a washed-out screen or in greyscale.
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnchorTheme.minTouchTarget),
       child: OutlinedButton(
@@ -397,21 +414,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           backgroundColor: selected
-              ? const Color(0xFFE3EFE6)
-              : AnchorTheme.surface,
+              ? AnchorTheme.jade
+              : AnchorTheme.paperRaised,
+          foregroundColor: selected ? AnchorTheme.onPrimary : AnchorTheme.ink,
+          minimumSize: const Size(AnchorTheme.minTouchTarget, 60),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           side: BorderSide(
-            color: selected ? AnchorTheme.primary : AnchorTheme.border,
-            width: selected ? 3 : 2,
+            color: selected ? AnchorTheme.jade : AnchorTheme.line,
+            width: 2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AnchorTheme.buttonRadius),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             if (selected) ...<Widget>[
-              const Icon(Icons.check, size: 26, color: AnchorTheme.primary),
+              const Icon(Icons.check, size: 26),
               const SizedBox(width: 6),
             ],
-            Text(label, style: const TextStyle(fontSize: 24)),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -421,7 +452,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // -- consents ------------------------------------------------------------
   Widget _consentSection(L l, AppState state) {
     final consent = state.consent;
-    return SectionCard(
+    return HubPanel(
       title: l.settingsConsents,
       icon: Icons.verified_user_outlined,
       child: Column(
@@ -492,7 +523,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _sharingSection(L l, AppState state) {
     final consent = state.consent;
-    return SectionCard(
+    return HubPanel(
       title: l.settingsSharing,
       hint: l.settingsSharingHint,
       icon: Icons.share_outlined,
@@ -526,7 +557,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         .where((p) => p.status == 'pending')
         .toList();
     if (pending.isEmpty) return const SizedBox.shrink();
-    return SectionCard(
+    return HubPanel(
       title: l.settingsProposals,
       icon: Icons.event_available_outlined,
       child: Column(
@@ -572,7 +603,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final visible = state.memories
         .where((memory) => memory.approvalState != 'deleted')
         .toList();
-    return SectionCard(
+    return HubPanel(
       title: l.settingsMemories,
       icon: Icons.bookmark_border,
       child: visible.isEmpty
@@ -636,7 +667,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // -- digest --------------------------------------------------------------
   Widget _digestSection(L l, AppState state) {
     final digest = state.digests.isEmpty ? null : state.digests.first;
-    return SectionCard(
+    return HubPanel(
       title: l.settingsDigest,
       icon: Icons.summarize_outlined,
       child: Column(
@@ -765,7 +796,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // -- family --------------------------------------------------------------
   Widget _familySection(L l, AppState state) {
-    return SectionCard(
+    return HubPanel(
       title: l.settingsFamily,
       icon: Icons.family_restroom,
       child: Column(
@@ -879,7 +910,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // -- data rights ---------------------------------------------------------
   Widget _dataSection(L l, AppState state) {
-    return SectionCard(
+    return HubPanel(
       title: l.settingsDeleteData,
       icon: Icons.delete_outline,
       child: Column(
