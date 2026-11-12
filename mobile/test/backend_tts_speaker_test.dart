@@ -139,6 +139,26 @@ void main() {
   /// file is really left behind.
   Future<void> drainCleanup() => waitUntil(() => tempFiles().isEmpty);
 
+  test('playback status follows preparation, launch and Stop', () async {
+    final api = FakeTtsApi()..pending = Completer<Uint8List>();
+    final launcher = ControlledLauncher();
+    final speaker = BackendTtsSpeaker(
+      api: api,
+      launcher: launcher,
+      fallback: SilentSpeaker(),
+      tempDirectory: tempDirectory,
+    );
+    final pending = speaker.speak('Hello');
+    await pumpEventQueue();
+    expect(speaker.playback.value, SpeechPhase.preparing);
+    api.pending!.complete(fakeMp3());
+    await pending;
+    expect(speaker.playback.value, SpeechPhase.playing);
+    await speaker.stop();
+    expect(speaker.playback.value, SpeechPhase.idle);
+    await speaker.dispose();
+  });
+
   group('Windows neural speaker', () {
     test(
       'fetches the mp3, writes it to a temp file and plays it with PowerShell',

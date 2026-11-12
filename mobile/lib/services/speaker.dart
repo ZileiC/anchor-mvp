@@ -1,3 +1,12 @@
+import 'package:flutter/foundation.dart';
+
+enum SpeechPhase { idle, preparing, playing, fallback }
+
+/// Optional lifecycle signals from speakers that launch playback asynchronously.
+abstract interface class SpeechStatusSource {
+  ValueListenable<SpeechPhase> get playback;
+}
+
 /// Text-to-speech seam. The app must stay usable when the device voice is
 /// missing, so every implementation degrades silently instead of throwing.
 abstract class Speaker {

@@ -1,3 +1,8 @@
+> TA5 review update: test the current Windows senior controls in My choices.
+> Test family setup and report retrieval separately on Android. Aided phone setup
+> must not be counted as independent senior task completion. This protocol remains
+> unexecuted until actual participant forms are supplied.
+
 # Anchor — §8 measurement protocol (MANUAL — not yet measured)
 
 This document defines how the user-study measures in guide §8 are collected. **No user study
@@ -88,7 +93,7 @@ number, each dialect group, and raw S/D/I/N counts so the arithmetic can be re-c
 ## 3. First-use usability — unaided completion
 
 1. Tasks (one attempt each, no facilitator guidance): open the app; start a conversation; play
-   one activity; call the saved family contact; stop the conversation; open settings; preview
+   one activity; call the saved family contact; stop the conversation; open My choices on the senior device; preview
    and approve a digest; delete one saved memory.
 2. The facilitator may only read the task aloud once. A hint voids the attempt and is logged as
    "aided".
@@ -104,7 +109,7 @@ number, each dialect group, and raw S/D/I/N counts so the arithmetic can be re-c
 | play activity | | | | | |
 | call family | | | | | |
 | stop conversation | | | | | |
-| open settings | | | | | |
+| open My choices | | | | | |
 | preview/approve digest | | | | | |
 | delete memory | | | | | |
 

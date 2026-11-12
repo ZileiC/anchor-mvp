@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/conversation.dart';
+import '../../services/speaker.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/inline_activity_card.dart';
 import '../../widgets/status_banner.dart';
+import 'choices_screen.dart';
 import 'settings_screen.dart';
 
 /// The conversation screen: microphone state, captions, Repeat, Stop and an
@@ -125,6 +127,17 @@ class _TalkScreenState extends State<TalkScreen> {
   /// The Windows appliance has no settings screen (architecture change
   /// 2026-11-10), so this never pushes one there: a stale button explains
   /// instead of opening a route that does not exist on this build.
+  /// Opens 我的选择 and makes sure a conversation can start once the older adult
+  /// has changed a permission (2026-11-12).
+  Future<void> _openChoices() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChoicesScreen(state: widget.state),
+      ),
+    );
+    if (mounted) await _ensureSession();
+  }
+
   Future<void> _openSettings() async {
     if (!widget.state.policy.setupApp) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -309,20 +322,32 @@ class _TalkScreenState extends State<TalkScreen> {
                     l: l,
                     tone: BannerTone.problem,
                     title: l.needConsentCloud,
-                    // On the appliance the permission has to be turned on from
-                    // the family phone, so the banner says that instead of
-                    // offering a Settings button this build does not have.
+                    // The older adult can turn cloud speech on themselves, on the
+                    // appliance, in 我的选择 (2026-11-12). Before this banner sent
+                    // them to the family's phone for a permission that is theirs.
                     body: state.policy.setupApp
                         ? l.talkConsentNeeded
-                        : l.talkConsentNeededOnPhone,
-                    extraAction: state.policy.setupApp
-                        ? OutlinedButton.icon(
-                            key: const Key('talk-open-settings'),
-                            onPressed: _openSettings,
-                            icon: const Icon(Icons.settings, size: 28),
-                            label: Text(l.goToSettings),
-                          )
-                        : null,
+                        : l.t(
+                            '您可以在「我的选择」里允许云端语音处理。',
+                            'You can allow cloud voice processing in My choices.',
+                          ),
+                    extraAction: OutlinedButton.icon(
+                      key: const Key('talk-open-settings'),
+                      onPressed: state.policy.setupApp
+                          ? _openSettings
+                          : _openChoices,
+                      icon: Icon(
+                        state.policy.setupApp
+                            ? Icons.settings
+                            : Icons.verified_user_outlined,
+                        size: 28,
+                      ),
+                      label: Text(
+                        state.policy.setupApp
+                            ? l.goToSettings
+                            : l.t('我的选择', 'My choices'),
+                      ),
+                    ),
                   )
                 else if (state.offline)
                   StatusBanner(
@@ -438,9 +463,27 @@ class _TalkScreenState extends State<TalkScreen> {
     final on = asrReady && state.hasActiveSession && !state.recording;
     final recording = state.recording;
     final color = recording || on ? AnchorTheme.ink : AnchorTheme.inkSoft;
+    // Say what is actually happening, 2026-11-12 (borrowed from the TA5 fork):
+    // a bare on/off flag made the dock say '麦克风已开' while the machine was still
+    // synthesising, and said nothing at all while the device voice was trying to
+    // take over. Colour is never the only channel here — each state has words.
+    final phase = state.speechPhase;
     final label = recording
         ? l.listening
-        : (!asrReady ? l.micNotConnected : (on ? l.micOn : l.micOff));
+        : phase == SpeechPhase.playing
+        ? l.t('正在朗读，随时可以停止。', 'Speaking. You can stop at any time.')
+        : phase == SpeechPhase.fallback
+        ? l.t(
+            '正在尝试系统语音。您也可以阅读文字。',
+            'Trying the device voice. You can also read the reply.',
+          )
+        : phase == SpeechPhase.preparing
+        ? l.t('正在准备语音，文字已显示。', 'Preparing the voice; you can read the reply.')
+        : (!asrReady
+              ? l.micNotConnected
+              : on
+              ? l.micOn
+              : l.t('麦克风已关闭，点按后说话。', 'Microphone off. Tap to speak.'));
     return Semantics(
       label: label,
       liveRegion: true,

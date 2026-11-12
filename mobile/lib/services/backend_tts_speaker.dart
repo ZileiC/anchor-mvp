@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -62,7 +62,9 @@ Future<void> sweepStaleTtsFiles({
 /// kills the child process — that is how Stop really silences speech — and the
 /// mp3 is removed as soon as the dead child has released it. Playback never
 /// throws into the UI: speech is an enhancement.
-class BackendTtsSpeaker implements Speaker {
+class BackendTtsSpeaker implements Speaker, SpeechStatusSource {
+  @override
+  final ValueNotifier<SpeechPhase> playback = ValueNotifier(SpeechPhase.idle);
   BackendTtsSpeaker({
     required this.api,
     Speaker? fallback,
@@ -158,6 +160,8 @@ exit 0
     if (text.trim().isEmpty) return;
     final generation = ++_generation;
     await _silence(); // One voice at a time: interrupt whatever is playing.
+    if (generation != _generation) return;
+    playback.value = SpeechPhase.preparing;
 
     Uint8List audio;
     try {
@@ -219,6 +223,7 @@ exit 0
         return;
       }
       _process = handle;
+      playback.value = SpeechPhase.playing;
       _failed = false;
       // Tracked (not awaited here: speak() must not block), but dispose() waits
       // for it so the app never leaves an mp3 behind on exit.
@@ -245,6 +250,7 @@ exit 0
   @override
   Future<void> stop() async {
     _generation++;
+    playback.value = SpeechPhase.idle;
     await fallback.stop();
     await _silence();
   }
@@ -298,6 +304,9 @@ exit 0
     if (identical(_process, handle)) _process = null;
     // A killed child (Stop, or a newer utterance took over) is not a failure.
     final superseded = generation != _generation;
+    if (!superseded) {
+      playback.value = exitCode == 0 ? SpeechPhase.idle : SpeechPhase.fallback;
+    }
     if (!superseded && exitCode != 0) {
       // The MediaPlayer script exits 0 only after really playing the file; 3
       // means it never opened it (missing codec, unreadable temp dir, no audio
@@ -350,6 +359,7 @@ exit 0
     required String reason,
   }) async {
     _failed = true;
+    playback.value = SpeechPhase.fallback;
     debugPrint('Neural voice unavailable ($reason); using Windows SAPI.');
     await fallback.speak(text, language: language, slow: slow);
   }

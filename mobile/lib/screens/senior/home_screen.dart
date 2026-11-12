@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -12,6 +12,7 @@ import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/invitation_card.dart';
 import '../../widgets/status_banner.dart';
 import 'call_screen.dart';
+import 'choices_screen.dart';
 import 'settings_screen.dart';
 import 'talk_screen.dart';
 
@@ -210,6 +211,31 @@ class _SeniorHomeScreenState extends State<SeniorHomeScreen> with RouteAware {
                   ),
                 ),
                 _secondaryActions(context, l, wide),
+                // The older adult's own decisions, on the appliance, 2026-11-12
+                // (borrowed from the TA5 fork): a quiet row under the two big
+                // actions. It is not a settings screen —技术配置 still lives on the
+                // family phone — it is 隐私与分享: consent, topics, linkage,
+                // memories, and the weekly update they share.
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const Key('primary-choices'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ChoicesScreen(state: state),
+                    ),
+                  ),
+                  icon: const Icon(Icons.verified_user_outlined, size: 28),
+                  label: Text(
+                    l.t('我的选择', 'My choices'),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(64),
+                  ),
+                ),
                 if (state.policy.setupApp) ...<Widget>[
                   const SizedBox(height: 12),
                   _settingsButton(context, l),

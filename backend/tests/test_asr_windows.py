@@ -143,6 +143,7 @@ def test_windows_sapi_probe_is_cached(monkeypatch):
         calls.append(1)
         return True
 
+    monkeypatch.setattr(asr_windows, "sys", types.SimpleNamespace(platform="win32"))
     monkeypatch.setattr(asr_windows, "_probe_recognizers", probe)
     asr_windows.reset_sapi_probe_cache()
     try:

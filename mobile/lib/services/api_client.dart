@@ -615,6 +615,15 @@ class ApiClient {
   Future<DigestList> digests() async =>
       DigestList.fromResponse(await _send('GET', '/digests'));
 
+  /// Prepares the last completed week's update on demand (senior only).
+  /// No worker needed, and it never invents observations.
+  Future<Digest> generateDigest() async =>
+      Digest.fromJson(asMap(await _send('POST', '/digests/generate')));
+
+  /// The senior's explicit approval + immediate family delivery.
+  Future<Digest> publishDigest(int id) async =>
+      Digest.fromJson(asMap(await _send('POST', '/digests/$id/publish')));
+
   Future<Digest> digest(int id) async =>
       Digest.fromJson(asMap(await _send('GET', '/digests/$id')));
 

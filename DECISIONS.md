@@ -182,3 +182,32 @@ supersede it with a new entry.
   voice answers); the rotation is shared, so answering inline also moves Play on. One test contract
   changed on purpose: `test_frozen_paths` now sees migration 003.
 
+
+## 2026-11-12 — Senior personal controls and a complete TA5 report flow
+
+- Context: the team requested implementation of the rubric review. Moving all
+  settings to the family phone also removed independent senior consent controls.
+- Decision: add a dedicated `ChoicesScreen` on the senior appliance and keep the
+  technical Settings and AI provider screens restricted to the setup phone.
+  Senior-only backend authorization remains authoritative. My choices includes
+  cloud permission, topics, family linking/revocation, weekly report approval and
+  memory approval/deletion. All-topic revocation is one versioned consent request.
+- Report generation: `POST /digests/generate` is senior-only, uses the last
+  completed ISO week in that user's timezone, is idempotent per week, audits the
+  request, and preserves the adequate-data rule. It adds no observations.
+- Publication: `POST /digests/{id}/publish` verifies ownership, active family
+  relationship and allowed topics; moves a reviewed draft through the existing
+  approval service and immediately invokes the existing delivery service. This
+  creates generic database reminders, not external messages or mobile push.
+  A worker retry is harmless after delivery. Scheduled generation still needs the
+  worker; the manual flow does not require one.
+- Phone: a week selector and explicit refresh re-fetch permission-filtered data;
+  failed family digest refresh clears the cached display. Unread in-app reminders
+  can be marked read. The setup hub polls each minute only while foregrounded.
+- Voice: distinguish actual capture, processing, synthesis preparation and the
+  Windows playback-process lifecycle. Idle microphone copy no longer says it is on.
+  Device-voice fallback is labelled as an attempt, not verified audible output.
+- Demo: `ANCHOR_DEVICE_ID` is configurable at build time, default unchanged for the
+  Windows seed. Build Android with a different identifier. The architecture remains
+  LAN-only and the dialer remains an OS handoff. No production security or medical
+  outcome claims are added. Old release binaries are not regenerated on macOS.

@@ -26,6 +26,7 @@ class DigestScreen extends StatefulWidget {
 
 class _DigestScreenState extends State<DigestScreen> {
   bool _loading = false;
+  int? _selectedId;
 
   @override
   void initState() {
@@ -34,10 +35,13 @@ class _DigestScreenState extends State<DigestScreen> {
   }
 
   Future<void> _load() async {
-    if (!mounted) return;
-    if (widget.state.digests.isNotEmpty) return;
+    if (!mounted || _loading) return;
     setState(() => _loading = true);
+    // Always re-fetch (2026-11-12, borrowed from the TA5 fork): the older adult
+    // may have revoked a topic since this screen opened, and a cached copy would
+    // then show highlights they are no longer sharing.
     await widget.state.loadDigests();
+    await widget.state.loadNotifications();
     if (!mounted) return;
     setState(() => _loading = false);
   }
@@ -56,14 +60,29 @@ class _DigestScreenState extends State<DigestScreen> {
   Widget build(BuildContext context) {
     final state = AnchorScope.of(context);
     final l = state.l;
-    final digest = state.digests.isEmpty ? null : state.digests.first;
+    final selected = state.digests.where((d) => d.id == _selectedId);
+    final digest = selected.isNotEmpty
+        ? selected.first
+        : state.digests.isEmpty
+        ? null
+        : state.digests.first;
     final contact = state.digestContact;
     final period = digest == null || digest.periodStart == null
         ? null
         : '${digest.periodStart} – ${digest.periodEnd ?? ''}';
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.caregiverDigestTitle)),
+      appBar: AppBar(
+        title: Text(l.caregiverDigestTitle),
+        actions: <Widget>[
+          IconButton(
+            key: const Key('refresh-digests'),
+            tooltip: l.settingsRefresh,
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -100,6 +119,56 @@ class _DigestScreenState extends State<DigestScreen> {
               else if (digest.isInsufficientData)
                 _quiet(l.caregiverInsufficient)
               else ...<Widget>[
+                // Unread 'a family update is ready' reminders, 2026-11-12
+                // (borrowed from the fork). The API client already had the calls;
+                // nothing on screen used them until now.
+                for (final notice in state.notifications.where(
+                  (n) => n.kind == 'digest_ready' && n.isUnread,
+                ))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: HubNote(
+                      key: ValueKey<String>('digest-notice-${notice.id}'),
+                      icon: Icons.notifications_active_outlined,
+                      title: l.t('有新的家人简报', 'A family update is ready'),
+                      body: l.t(
+                        '看过之后可以标为已读。',
+                        'Mark it read once you have looked at it.',
+                      ),
+                    ),
+                  ),
+                // Week selector: only when there is more than one week to look at.
+                if (state.digests.length > 1) ...<Widget>[
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      for (final week in state.digests)
+                        OutlinedButton(
+                          key: ValueKey<String>('digest-week-${week.id}'),
+                          onPressed: () =>
+                              setState(() => _selectedId = week.id),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: week.id == digest.id
+                                ? AnchorTheme.jade
+                                : AnchorTheme.paperRaised,
+                            foregroundColor: week.id == digest.id
+                                ? AnchorTheme.onPrimary
+                                : AnchorTheme.ink,
+                            minimumSize: const Size(
+                              AnchorTheme.minTouchTarget,
+                              56,
+                            ),
+                          ),
+                          child: Text(
+                            week.periodStart ?? '—',
+                            style: const TextStyle(fontSize: 22),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 if (period != null) ...<Widget>[
                   HubSectionLabel(label: period),
                   const SizedBox(height: 2),

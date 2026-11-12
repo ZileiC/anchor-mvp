@@ -51,6 +51,14 @@ class AppState extends ChangeNotifier {
           onGreeting: _speak,
         );
     invitations.setGreetingPlayer(_speak);
+    // Repaint when the voice pipeline moves, so the dock can say what is really
+    // happening instead of guessing.
+    final Speaker playbackSource = speaker;
+    if (playbackSource is SpeechStatusSource) {
+      (playbackSource as SpeechStatusSource).playback.addListener(
+        notifyListeners,
+      );
+    }
   }
 
   final ApiClient api;
@@ -91,6 +99,11 @@ class AppState extends ChangeNotifier {
   List<MemoryItem> memories = <MemoryItem>[];
   ActivityFeed activityFeed = ActivityFeed.empty;
   List<Digest> digests = <Digest>[];
+  List<AppNotification> notifications = <AppNotification>[];
+
+  /// Unread 'your family update is ready' reminders (family side only).
+  int get unreadDigestCount =>
+      notifications.where((n) => n.kind == 'digest_ready' && n.isUnread).length;
   String digestNote = '';
   List<ScheduleProposal> proposals = <ScheduleProposal>[];
   CheckinSchedule schedule = CheckinSchedule.empty;
@@ -174,6 +187,25 @@ class AppState extends ChangeNotifier {
   bool digestFeatureMissing = false;
   bool contactsFeatureMissing = false;
   bool speechActive = false;
+
+  /// What the voice pipeline is doing right now, when the speaker can tell us.
+  ///
+  /// A bare speechActive boolean made the Talk screen say '麦克风已开' while
+  /// the machine was still waiting on synthesis. Speakers that implement
+  /// [SpeechStatusSource] report preparing / playing / fallback honestly; the
+  /// others fall back to the boolean.
+  ValueListenable<SpeechPhase> get speechPlayback => _speechPlayback;
+  final ValueNotifier<SpeechPhase> _speechPlayback = ValueNotifier(
+    SpeechPhase.idle,
+  );
+
+  SpeechPhase get speechPhase {
+    final Speaker source = speaker;
+    if (source is SpeechStatusSource) {
+      return (source as SpeechStatusSource).playback.value;
+    }
+    return speechActive ? SpeechPhase.preparing : SpeechPhase.idle;
+  }
 
   bool get signedIn => profile != null;
 
@@ -408,6 +440,9 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } on ApiException catch (error) {
       _noteFeature('digests', error);
+      // Never keep an old family copy visible after a failed permission
+      // refresh: consent may have changed since this copy was fetched.
+      if (isCaregiver) digests = <Digest>[];
       if (!error.isFeatureUnavailable) _fail(error);
     }
   }
@@ -453,6 +488,101 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } on ApiException catch (error) {
       if (!error.isFeatureUnavailable) _fail(error);
+    }
+  }
+
+  // -- notifications (family) ---------------------------------------------
+  /// In-app reminders the phone can read while it is open. No push: this
+  /// version has no background channel (documented in HANDOFF/limitations).
+  Future<void> loadNotifications() async {
+    if (!isCaregiver) return;
+    try {
+      notifications = await api.notifications();
+      notifyListeners();
+    } on ApiException catch (error) {
+      if (!error.isFeatureUnavailable) _fail(error);
+    }
+  }
+
+  Future<bool> markNotificationRead(int id) async {
+    try {
+      await api.markNotificationRead(id);
+      await loadNotifications();
+      return true;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Turn every sharing topic off in one versioned consent request.
+  ///
+  /// 我的选择 needs this: revoking five topics one by one is five chances to give
+  /// up half way, and the one thing a worried person wants is one switch
+  /// (borrowed from the TA5 fork, 2026-11-12).
+  Future<bool> stopAllSharing() async {
+    if (!isSenior) return false;
+    try {
+      consent = await api.updateConsents(
+        baseVersion: consent.version,
+        changes: <ConsentChange>[
+          for (final topic in ShareTopics.all)
+            ConsentChange(
+              capability: Capabilities.shareTopic,
+              topic: topic,
+              allowed: false,
+            ),
+        ],
+      );
+      lastError = null;
+      await loadDigests();
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      if (error.code == 'consent_version_conflict') await loadConsents();
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // -- digests on demand (2026-11-12, borrowed from the fork) --------------
+  /// Prepares last week's update without a worker.
+  Future<bool> generateDigest() async {
+    if (!isSenior) return false;
+    try {
+      final generated = await api.generateDigest();
+      digests = <Digest>[
+        generated,
+        ...digests.where((d) => d.id != generated.id),
+      ];
+      lastError = null;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// The senior's explicit approval, then immediate delivery to the family.
+  Future<bool> publishDigest(int id) async {
+    if (!isSenior) return false;
+    try {
+      final published = await api.publishDigest(id);
+      digests = <Digest>[
+        published,
+        ...digests.where((d) => d.id != published.id),
+      ];
+      lastError = null;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return false;
     }
   }
 
@@ -767,13 +897,17 @@ class AppState extends ChangeNotifier {
     _lastAnchorText = text;
     speechActive = true;
     notifyListeners();
-    await speaker.speak(
-      text,
-      language: language == 'en' ? 'en-US' : 'zh-CN',
-      slow: preferences?.isSlowPace ?? true,
-    );
-    speechActive = false;
-    notifyListeners();
+    try {
+      await speaker.speak(
+        text,
+        language: language == 'en' ? 'en-US' : 'zh-CN',
+        slow: preferences?.isSlowPace ?? true,
+      );
+    } finally {
+      // A throwing speaker must not leave the dock saying '正在朗读' forever.
+      speechActive = false;
+      notifyListeners();
+    }
   }
 
   /// Speaks one short sentence for the Play screen: the story of a card, the
