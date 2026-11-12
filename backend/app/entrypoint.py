@@ -30,6 +30,84 @@ from app.paths import DATA_DIR_NAME, app_base_dir, is_frozen, resolve_db_path
 
 LOG_FILE_NAME = "backend.log"
 
+# The bundle the family does not have to fill in, 2026-11-12.
+#
+# Shipping a build that only replies from the offline rule model is not "ready to
+# use": the person who unpacks the zip has no DeepSeek key and no speech-recognition
+# key, so the senior's first sentence would come back as a template and the
+# microphone would answer "not configured".
+#
+# These are applied with os.environ.setdefault, i.e. ONLY when the environment does
+# not already say something, and a key saved in the app's own settings still wins
+# (see app/providers/config.py: stored row -> environment -> offline default). So a
+# family that enters their own keys is unaffected, and a developer's shell override
+# still works.
+#
+# The key lives per install, in config\credentials.env next to the executable:
+#   ANCHOR_DEMO_CREDENTIALS=<path to a .env file with ANCHOR_LLM_API_KEY=...>
+# The real keys are NEVER in the repository or in this source file (the file is
+# gitignored and lines beginning with # are ignored). Keys are per-install anyway:
+# DeepSeek and SiliconFlow keys are not shareable, and the hosted build's keys
+# cannot be silently put in a public zip.
+BUNDLE_ENV_FILE = "ANCHOR_DEMO_CREDENTIALS"
+BUNDLE_DEFAULT_MODELS = (
+    ("ANCHOR_LLM_BASE_URL", "https://api.deepseek.com"),
+    ("ANCHOR_LLM_MODEL", "deepseek-flash"),
+    ("ANCHOR_ASR_BASE_URL", "https://api.siliconflow.cn/v1"),
+    ("ANCHOR_ASR_MODEL", "Qwen/Qwen3-ASR-1.7B"),
+)
+
+
+def _read_dotenv(path: Path) -> dict[str, str]:
+    """Minimal ``KEY=value`` reader: comments, blanks, optional quotes."""
+    values: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value:
+            values[key] = value
+    return values
+
+
+def _apply_bundle_credentials() -> None:
+    """Make the frozen build usable out of the box, without overriding anyone."""
+    for name, value in BUNDLE_DEFAULT_MODELS:
+        os.environ.setdefault(name, value)
+
+    candidates: list[Path] = []
+    explicit = os.environ.get(BUNDLE_ENV_FILE)
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    candidates.append(app_base_dir() / "config" / "credentials.env")
+    # Inside the one-file exe the bundled file is extracted to _MEIPASS/config.
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass) / "config" / "credentials.env")
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        for name, value in _read_dotenv(candidate).items():
+            os.environ.setdefault(name, value)
+        break
+
+    # A key with no explicit provider mode would leave the app on the offline rule
+    # model (that is app/providers/config.py's documented default); say "http" only
+    # when we actually have a key for it.
+    if os.environ.get("ANCHOR_LLM_API_KEY"):
+        os.environ.setdefault("ANCHOR_LLM_PROVIDER", "http")
+        os.environ.setdefault("ANCHOR_LLM_URL", os.environ["ANCHOR_LLM_BASE_URL"])
+    if os.environ.get("ANCHOR_ASR_API_KEY"):
+        os.environ.setdefault("ANCHOR_ASR_PROVIDER", "http")
+        os.environ.setdefault("ANCHOR_ASR_URL", os.environ["ANCHOR_ASR_BASE_URL"])
+
 
 # -- process plumbing -----------------------------------------------------
 def _log_dir(db_path: str) -> Path:
@@ -86,8 +164,11 @@ def _is_port_in_use_error(exc: BaseException) -> bool:
 # -- server ---------------------------------------------------------------
 def main() -> int:
     db_path = resolve_db_path()
-    # The packaged demo has no ASR key; use the real offline Windows SAPI
-    # recognizer when this machine has one, and be honest otherwise.
+    # Model names/endpoints and (when the bundle ships them) the keys, before any
+    # Settings.from_env() reads the environment.
+    _apply_bundle_credentials()
+    # When no key was bundled, fall back to the real offline Windows SAPI
+    # recognizer if this machine has one, and stay honest otherwise.
     os.environ.setdefault("ANCHOR_ASR_PROVIDER", "auto")
     # app/main.py builds a module-level ``app`` when imported (uvicorn app.main:app
     # in development). Point that import at the same file so a frozen run never

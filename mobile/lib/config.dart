@@ -7,6 +7,17 @@ class AnchorConfig {
   const AnchorConfig._();
 
   /// Backend origin, e.g. `http://127.0.0.1:8077`. No trailing slash.
+  ///
+  /// Two builds, two truths (2026-11-12):
+  ///
+  /// * the **appliance** always talks to the backend bundled next to it, so its
+  ///   address is the compiled-in loopback and nothing else can be right;
+  /// * the **phone** cannot know the computer's address at build time — the LAN
+  ///   address changes with the Wi-Fi (10.4.x at home, 10.2.x on campus). So the
+  ///   compiled-in value is only a sign-in default; the login screen shows it,
+  ///   offers 换一个地址, and the chosen address is saved and wins
+  ///   (`services/backend_address_store.dart`). `--dart-define=ANCHOR_API_BASE=…`
+  ///   still overrides this default for a fixed setup.
   static const String apiBase = String.fromEnvironment(
     'ANCHOR_API_BASE',
     defaultValue: 'http://127.0.0.1:8077',

@@ -65,6 +65,15 @@ class L {
         'Wi-Fi.',
   );
   String get backendAddressChange => t('换一个地址', 'Change the address');
+  // Added 2026-11-12 (B): a compiled-in address is only a guess on the phone.
+  // Unchanged from the last build it is shown as "上次用的", not as the truth.
+  String get backendAddressLastUsed => t('上次用的', 'last used');
+  String get backendAddressNotSet => t('还没设置', 'not set yet');
+  String get backendAddressComputer => t('这台电脑', 'this computer');
+  // Printed once on the computer's Home screen: the only place a family member can
+  // read the address to type into the phone (2026-11-12).
+  String get backendAddressOnComputer =>
+      t('手机要用的地址：', 'Address for the phone: ');
   String get backendAddressInvalid => t(
     '这个地址不对，应该像 http://192.168.1.20:8077',
     'That is not an address — it should look like http://192.168.1.20:8077',

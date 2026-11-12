@@ -135,8 +135,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   const SizedBox(height: 28),
+                  // Honest about where the address came from (2026-11-12): on the
+                  // phone a compiled-in value is a guess, so it is labelled 还没设置
+                  // instead of being shown as if it were the computer's address.
                   Text(
-                    '${l.backendLabel}: ${state.apiBaseLabel}',
+                    state.policy.setupApp
+                        ? '${l.backendLabel}: ${state.apiBaseLabel}'
+                              '（${state.addressChosenHere ? l.backendAddressLastUsed : l.backendAddressNotSet}）'
+                        : '${l.backendLabel}: ${state.apiBaseLabel}'
+                              '（${l.backendAddressComputer}）',
+                    key: const Key('backend-address-line'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 20,

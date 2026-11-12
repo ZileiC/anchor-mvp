@@ -9,6 +9,7 @@ import 'services/app_log.dart';
 import 'services/backend_bootstrapper.dart';
 import 'services/backend_tts_speaker.dart';
 import 'services/dialer.dart';
+import 'services/lan_address.dart';
 import 'services/speaker_factory.dart';
 import 'services/speech_input.dart';
 import 'state/app_state.dart';
@@ -24,6 +25,9 @@ Future<void> main() async {
   // computer's LAN address changes with the Wi-Fi. Read it before the client is
   // built so the first probe already talks to the right machine.
   final savedAddress = await const BackendAddressStore().load();
+  // The Windows Home screen prints 'address for the phone: http://<lan>:8077',
+  // so look the LAN address up once here instead of on every rebuild.
+  unawaited(probeLanAddress());
   // Drop speech mp3s a previous run never cleaned up (crash / killed child).
   unawaited(sweepStaleTtsFiles());
   final api = ApiClient(baseUrl: savedAddress);

@@ -28,3 +28,8 @@ mobile/android/local.properties
 # holds the API keys and must never be committed.
 release/windows/backend/data/
 release/windows/data/backend.log
+
+# The keys baked into the shipped backend exe (scripts\build_backend.ps1).
+# They must never reach git: the exe gets them, the repository does not.
+backend/config/
+*.env.private

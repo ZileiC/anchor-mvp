@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../l10n/strings.dart';
 import '../../state/app_state.dart';
+import '../../services/lan_address.dart';
 import '../../state/invitation_controller.dart';
 import '../../theme.dart';
 import '../../widgets/anchor_scaffold.dart';
@@ -34,6 +35,8 @@ class SeniorHomeScreen extends StatefulWidget {
 }
 
 class _SeniorHomeScreenState extends State<SeniorHomeScreen> with RouteAware {
+  /// The address the phone should be pointed at, read once at start.
+  String? _addressLine;
   ModalRoute<void>? _route;
   bool _pressed = false;
 
@@ -42,6 +45,9 @@ class _SeniorHomeScreenState extends State<SeniorHomeScreen> with RouteAware {
   @override
   void initState() {
     super.initState();
+    // Read once: the LAN address does not change while the app runs, and a
+    // network lookup on every rebuild would be waste.
+    _addressLine = backendAddressForDisplay();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) state.invitations.setHomeVisible(true);
     });
@@ -144,6 +150,22 @@ class _SeniorHomeScreenState extends State<SeniorHomeScreen> with RouteAware {
                     height: 1.35,
                   ),
                 ),
+                // The one thing the phone needs from this computer: the address
+                // to type. Small, grey and passive — a fact, not a control
+                // (2026-11-12).
+                if (_addressLine != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '${l.backendAddressOnComputer}${_addressLine!}',
+                      key: const Key('home-lan-address'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        color: AnchorTheme.inkSoft,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
                 if (state.offline) ...<Widget>[
                   const SizedBox(height: 12),
                   StatusBanner(

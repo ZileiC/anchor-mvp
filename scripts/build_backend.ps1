@@ -26,6 +26,21 @@ $exe = Join-Path $distDir 'anchor_backend.exe'
 New-Item -ItemType Directory -Force -Path $distDir, $workDir | Out-Null
 if (Test-Path $exe) { Remove-Item $exe -Force }
 
+# The keys the packaged build runs with (2026-11-12). config\credentials.env is
+# gitignored and never leaves this machine; PyInstaller bakes it INTO the exe so
+# whoever unpacks the zip does not have to fill anything in. Without the file the
+# build still works -- it just replies from the offline rule model and asks for a
+# key, which is the old behaviour.
+$bundleDir = Join-Path $script:BackendDir 'config'
+$bundleFile = Join-Path $bundleDir 'credentials.env'
+$bundleArg = @()
+if (Test-Path $bundleFile) {
+    $bundleArg = @('--add-data', "$bundleFile;config")
+    Write-Host '[build] bundling config\credentials.env INTO the exe (not into the repo)' -ForegroundColor Cyan
+} else {
+    Write-Host '[build] no config\credentials.env: the exe will run offline-only and ask for a key' -ForegroundColor DarkYellow
+}
+
 Write-Host '[build] running PyInstaller (one-file, windowed) ...' -ForegroundColor Cyan
 Push-Location $script:BackendDir
 try {
@@ -35,6 +50,7 @@ try {
         --onefile --noconsole `
         --add-data "migrations;migrations" `
         --add-data "../content/activities.json;content" `
+        @bundleArg `
         --collect-submodules uvicorn `
         --collect-submodules edge_tts `
         --hidden-import aiohttp `

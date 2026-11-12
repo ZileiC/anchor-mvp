@@ -7,6 +7,7 @@ import '../l10n/strings.dart';
 import '../models/models.dart';
 import '../platform_policy.dart';
 import '../services/api_client.dart';
+import '../services/backend_address_store.dart';
 import '../services/credential_store.dart';
 import '../services/dialer.dart';
 import '../services/invitation_scheduler.dart';
@@ -1359,6 +1360,11 @@ class AppState extends ChangeNotifier {
   /// Exposed for the caregiver invitation screen copy.
   String get apiBaseLabel => api.baseUrl;
 
+  /// True when the address in use was typed in on this device (and survives a
+  /// restart). False on a fresh phone install: the compiled-in default is only a
+  /// guess there, and the login screen says so.
+  bool addressChosenHere = BackendAddressStore.hasSaved;
+
   /// Repoints the whole client (and the screens that read the address) at
   /// another backend, then signs out.
   ///
@@ -1373,6 +1379,7 @@ class AppState extends ChangeNotifier {
     providers = null;
     offline = false;
     lastError = null;
+    addressChosenHere = true;
     notifyListeners();
   }
 

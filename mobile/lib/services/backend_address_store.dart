@@ -18,6 +18,13 @@ class BackendAddressStore {
 
   static String? _cached;
 
+  /// Whether the address in use was chosen on this device.
+  ///
+  /// False means it is still the compiled-in default -- on the phone that is a
+  /// guess (the computer's address changes with the Wi-Fi), and the login screen
+  /// says 还没设置 instead of pretending it is right.
+  static bool get hasSaved => _cached != null && _cached!.trim().isNotEmpty;
+
   File get _file =>
       File('${_supportDir()}${Platform.pathSeparator}backend_address.txt');
 
