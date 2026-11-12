@@ -54,6 +54,23 @@ class L {
     'Could not sign in. The backend may not be running or the demo data is not seeded yet.',
   );
   String get backendLabel => t('后台地址', 'Backend');
+  // Added 2026-11-12: the phone's backend address is typed in on the phone, so a
+  // family member needs a place to fix it when the computer's IP changes.
+  String get backendAddressTitle => t('电脑的地址', 'The computer’s address');
+  String get backendAddressHint => t(
+    '在电脑上打开「安心陪伴」，屏幕上会显示一个地址，像 http://192.168.1.20:8077。'
+        '手机和电脑要连同一个 Wi-Fi。',
+    'Open Anchor on the computer: it shows an address like '
+        'http://192.168.1.20:8077. The phone and the computer must be on the same '
+        'Wi-Fi.',
+  );
+  String get backendAddressChange => t('换一个地址', 'Change the address');
+  String get backendAddressInvalid => t(
+    '这个地址不对，应该像 http://192.168.1.20:8077',
+    'That is not an address — it should look like http://192.168.1.20:8077',
+  );
+  String get backendAddressSaved =>
+      t('已经换到新地址。', 'Switched to the new address.');
   String get signIn => t('进入', 'Enter');
 
   // -- local backend startup ------------------------------------------------

@@ -126,11 +126,29 @@ class UnavailableTransport implements HttpTransport {
 /// Typed client for every Anchor endpoint the UI needs (SPEC §6).
 class ApiClient {
   ApiClient({String? baseUrl, HttpTransport? transport, Duration? timeout})
-    : baseUrl = _trimSlash(baseUrl ?? AnchorConfig.apiBase),
+    : _baseUrl = _trimSlash(baseUrl ?? AnchorConfig.apiBase),
       _transport = transport ?? IoHttpTransport(),
       _timeout = timeout ?? AnchorConfig.requestTimeout;
 
-  final String baseUrl;
+  /// Where the backend lives. Read-only so that a screen can decide to change
+  /// it (on the phone it is chosen at first run, not compiled in); the transport
+  /// reads [baseUrl] on every request, so changing it takes effect immediately.
+  String get baseUrl => _baseUrl;
+  String _baseUrl;
+
+  /// Points the whole client at another backend, e.g. the computer's LAN address
+  /// typed in on the phone. Returns false for anything that is not http(s).
+  bool retarget(String baseUrl) {
+    final parsed = Uri.tryParse(baseUrl.trim());
+    final usable =
+        parsed != null &&
+        parsed.hasAuthority &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https');
+    if (!usable) return false;
+    _baseUrl = _trimSlash(baseUrl);
+    return true;
+  }
+
   final HttpTransport _transport;
   final Duration _timeout;
 

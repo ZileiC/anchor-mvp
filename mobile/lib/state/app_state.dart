@@ -1359,6 +1359,23 @@ class AppState extends ChangeNotifier {
   /// Exposed for the caregiver invitation screen copy.
   String get apiBaseLabel => api.baseUrl;
 
+  /// Repoints the whole client (and the screens that read the address) at
+  /// another backend, then signs out.
+  ///
+  /// Why sign out: a token was issued by the old backend, so keeping it against
+  /// a different server would produce 401s that look like a broken app. The
+  /// caller persists the address; this only changes the live state.
+  void retargetBackend(String baseUrl) {
+    if (!api.retarget(baseUrl)) return;
+    credentials.clear();
+    api.token = null;
+    profile = null;
+    providers = null;
+    offline = false;
+    lastError = null;
+    notifyListeners();
+  }
+
   /// Parses a duration into whole seconds for `POST /activity-sessions`.
   static int secondsBetween(DateTime from, DateTime to) {
     final value = to.difference(from).inSeconds;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'services/api_client.dart';
+import 'services/backend_address_store.dart';
 import 'services/app_log.dart';
 import 'services/backend_bootstrapper.dart';
 import 'services/backend_tts_speaker.dart';
@@ -13,15 +14,19 @@ import 'services/speech_input.dart';
 import 'state/app_state.dart';
 import 'state/backend_startup.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // First thing: a windowed double-click launch has no console, so every
   // debugPrint (microphone failures included) also goes to
   // %LOCALAPPDATA%\Anchor\anchor_app.log.
   AppLog.install();
+  // The phone's backend address is chosen on the phone, not compiled in: the
+  // computer's LAN address changes with the Wi-Fi. Read it before the client is
+  // built so the first probe already talks to the right machine.
+  final savedAddress = await const BackendAddressStore().load();
   // Drop speech mp3s a previous run never cleaned up (crash / killed child).
   unawaited(sweepStaleTtsFiles());
-  final api = ApiClient();
+  final api = ApiClient(baseUrl: savedAddress);
   final state = AppState(
     api: api,
     // Windows speech asks this same client for the backend's neural mp3, so it

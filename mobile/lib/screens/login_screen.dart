@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../config.dart';
+import '../services/backend_address_store.dart';
 import '../l10n/strings.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
@@ -37,6 +38,36 @@ class _LoginScreenState extends State<LoginScreen> {
       _signingIn = false;
       _failed = !ok;
     });
+  }
+
+  /// The phone's backend address is entered here, on the phone (2026-11-12).
+  ///
+  /// It used to be compiled in with `--dart-define`, which meant the address and
+  /// the network had to agree at build time: the computer's IP changes per Wi-Fi,
+  /// so the app went offline the moment the network did. Typing it once fixes
+  /// that for good. The Windows appliance keeps the compiled-in loopback address
+  /// and never shows this.
+  Future<void> _changeBackend() async {
+    final state = widget.state;
+    final l = state.l;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          _BackendAddressDialog(initial: state.apiBaseLabel, l: l),
+    );
+    if (result == null || !mounted) return;
+    final address = result.trim();
+    if (address.isEmpty) return;
+    if (!state.api.retarget(address)) {
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(l.backendAddressInvalid)));
+      return;
+    }
+    state.retargetBackend(address);
+    await const BackendAddressStore().save(address);
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(l.backendAddressSaved)));
   }
 
   @override
@@ -112,6 +143,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: AnchorTheme.inkSoft,
                     ),
                   ),
+                  // Only the phone (the setup app) gets this: its address is a
+                  // real choice. The Windows appliance talks to the backend
+                  // bundled next to it and has nothing to configure.
+                  if (state.policy.setupApp)
+                    TextButton.icon(
+                      key: const Key('backend-change'),
+                      onPressed: _signingIn ? null : _changeBackend,
+                      icon: const Icon(Icons.lan_outlined, size: 22),
+                      label: Text(
+                        l.backendAddressChange,
+                        style: const TextStyle(fontSize: 22),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -286,6 +330,76 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The address editor: a small stateful dialog so the controller lives exactly as
+/// long as the dialog does (disposing one from the caller crashed the field).
+class _BackendAddressDialog extends StatefulWidget {
+  const _BackendAddressDialog({required this.initial, required this.l});
+
+  final String initial;
+  final L l;
+
+  @override
+  State<_BackendAddressDialog> createState() => _BackendAddressDialogState();
+}
+
+class _BackendAddressDialogState extends State<_BackendAddressDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.l;
+    return AlertDialog(
+      title: Text(l.backendAddressTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            l.backendAddressHint,
+            style: const TextStyle(
+              fontSize: 22,
+              color: AnchorTheme.inkSoft,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('backend-address-field'),
+            controller: _controller,
+            autocorrect: false,
+            keyboardType: TextInputType.url,
+            style: const TextStyle(fontSize: 24),
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(labelText: 'http://'),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const Key('backend-address-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        FilledButton(
+          key: const Key('backend-address-save'),
+          onPressed: _submit,
+          child: Text(l.save),
+        ),
+      ],
     );
   }
 }
