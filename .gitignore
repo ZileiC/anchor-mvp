@@ -22,3 +22,9 @@ mobile/android/local.properties
 # Local config / secrets
 .env
 .env.local
+
+# The prebuilt Windows folder that ships in the repo (see README: 下载即用).
+# Only its runtime data is ignored - the database it creates on first launch
+# holds the API keys and must never be committed.
+release/windows/backend/data/
+release/windows/data/backend.log

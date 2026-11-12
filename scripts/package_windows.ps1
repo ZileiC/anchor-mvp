@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$SkipBuild,
     [string]$Version = "0.2.0"
 )
@@ -111,4 +111,18 @@ $archive.Dispose()
 $size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host "[package] $count files -> $zip ($size MB)" -ForegroundColor Green
 Write-Host '[package] README-DEMO.txt included; app auto-starts backend.' -ForegroundColor Green
+
+# 2026-11-12: also refresh the copy that ships INSIDE the repository. A plain
+# "Code -> Download ZIP" has to contain something double-clickable, so
+# `release\windows` is tracked; it must never drift behind a new build.
+$shipped = Join-Path (Split-Path $PSScriptRoot) 'release\windows'
+New-Item -ItemType Directory -Force -Path $shipped | Out-Null
+robocopy $stage $shipped /E /XF *.pdb /NFL /NDL /NJH /NJS /NP | Out-Null
+foreach ($entry in @('anchor_app.exe', 'backend\anchor_backend.exe', 'README-DEMO.txt')) {
+    if (-not (Test-Path (Join-Path $shipped $entry))) {
+        throw "release\windows is incomplete after packaging: missing $entry"
+    }
+}
+Write-Host '[package] release\windows refreshed (the runnable folder committed to the repo)' -ForegroundColor Green
+
 Remove-Item -Recurse -Force $stageRoot -ErrorAction SilentlyContinue

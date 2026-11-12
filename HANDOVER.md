@@ -58,6 +58,34 @@
 中文名——改它属于产品命名决定。Windows 窗口标题同理（`windows/runner/main.cpp` 里写死的
 `anchor_app`）。
 
+### 0.1.3 2026-11-12：从 GitHub 下的 zip 打开就报「本地服务未启动」——修好了
+
+**现象**：队友把仓库 zip（Code → Download ZIP）解压后打开，界面顶着一条红条：
+「没有找到后台程序。它应该和本程序放在同一个文件夹里。需要的文件：…\mobile\dist\windows\backend\anchor_backend.exe」。
+
+**不是因为他少做了什么，是我没把可运行的东西放进仓库。** 证据（`git archive HEAD` 解出来的
+干净副本）：`mobile/dist` 不存在、`backend/dist/anchor_backend.exe` 不存在、整个仓库里
+`.exe/.dll` 数量 = **0**。构建产物本来就在 `.gitignore` 里（`mobile/dist/`、`backend/dist/`、
+`*.exe`），所以源码 zip 里一个能双击的文件都没有。他能看到界面，是因为他本地跑过
+`scripts/run_app.ps1`（或自己编了 Windows 版）——而那个脚本在**后端 exe 不存在时只打一行黄色
+警告就照样启动 App**，于是打开的就是那条红条。
+
+**改了三处**：
+
+| 改动 | 为什么 |
+|---|---|
+| 新增并提交 `release/windows/`（app + Flutter 运行时 + `backend/anchor_backend.exe` + `README-DEMO.txt`，约 115 MB / 44 个文件） | 让「下载 zip → 双击 `release\windows\anchor_app.exe`」真的能跑，不需要 Python / Flutter |
+| `scripts/package_windows.ps1` 打包完顺带刷新 `release\windows` 并断言三个关键文件存在 | 否则仓库里那份会随每次构建变旧，问题原地复发 |
+| `scripts/run_app.ps1`：后端 exe 不存在时**先构建**，构建失败就抛错，不再静默启动 | 一行黄色警告埋在控制台里，没人会看见；错的东西要报错 |
+
+`.gitignore` 里补了 `release/windows/backend/data/`（首次启动生成的数据库里有 API key，
+绝不能进仓库）。`README.md` 顶部加了「Just want to run it?」一节，`package_windows.ps1`
+生成的 `README-DEMO.txt` 也一起进了那个文件夹。
+
+**代价**：仓库体积增加约 48 MB（git 压缩后）。换来的是任何人下载即用。
+**仍然要知道**：`release/windows` 是 **Debug** 构建，也是**本机编出来的**；它和
+`mobile/dist/AnchorDemo-<version>.zip` 内容一致，两份都要在改动代码后重新生成。
+
 ### 0.1.1 同一天修的授权错误：AI 接入是「设备配置」，不是老人的隐私
 
 10 号我把 `/providers` 三个接口都挂在 `require_senior` 上，同时又让手机端当「家人配置端」——
