@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'api_client.dart';
+import 'speech_audio_format.dart';
 // `tts_service.dart` re-exports `speaker.dart`, so the seam comes from there.
 import 'tts_service.dart';
 
@@ -248,7 +249,7 @@ class AndroidTtsSpeaker implements Speaker {
       return;
     }
 
-    final file = _nextFile();
+    final file = _nextFile(audio);
     try {
       await file.writeAsBytes(audio, flush: true);
     } catch (error) {
@@ -328,9 +329,12 @@ class AndroidTtsSpeaker implements Speaker {
 
   /// The mp3 of one utterance. Unique, so two quick utterances never share a
   /// file and a stop can never delete the file a later utterance is playing.
-  File _nextFile() {
+  File _nextFile(Uint8List audio) {
+    // mp3 from edge-tts, wav from DeepSeek (2026-11-14): the player opens the
+    // file, so the extension has to follow the container.
+    final extension = speechFileExtension(audio);
     final name =
-        '$filePrefix-${DateTime.now().microsecondsSinceEpoch}-${_counter++}.mp3';
+        '$filePrefix-${DateTime.now().microsecondsSinceEpoch}-${_counter++}.$extension';
     return File('${tempDirectory.path}${Platform.pathSeparator}$name');
   }
 

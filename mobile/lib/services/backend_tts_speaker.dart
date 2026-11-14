@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'speaker.dart';
+import 'speech_audio_format.dart';
 import 'windows_sapi_speaker.dart';
 
 /// Deletes speech mp3 files a previous run left in the temp directory.
@@ -25,8 +26,7 @@ Future<void> sweepStaleTtsFiles({
       final name = entity.uri.pathSegments.isEmpty
           ? ''
           : entity.uri.pathSegments.last;
-      if (!name.startsWith(BackendTtsSpeaker.filePrefix) ||
-          !name.endsWith('.mp3')) {
+      if (!isSpeechTempName(name, BackendTtsSpeaker.filePrefix)) {
         continue;
       }
       try {
@@ -197,7 +197,7 @@ exit 0
       return;
     }
 
-    final file = _nextFile();
+    final file = _nextFile(audio);
     try {
       await file.writeAsBytes(audio, flush: true);
     } catch (error) {
@@ -270,11 +270,17 @@ exit 0
     await fallback.dispose();
   }
 
-  /// The mp3 of one utterance. Unique, so two quick utterances never share a
-  /// file and a kill can never delete the file a later utterance is playing.
-  File _nextFile() {
+  /// The audio file of one utterance. Unique, so two quick utterances never
+  /// share a file and a kill can never delete the file a later utterance is
+  /// playing.
+  ///
+  /// The extension follows the container we were actually handed (2026-11-14):
+  /// edge-tts answers mp3, DeepSeek answers WAV, and the Windows player opens
+  /// the path as a file rather than sniffing its contents.
+  File _nextFile(Uint8List audio) {
+    final extension = speechFileExtension(audio);
     final name =
-        '$filePrefix-${DateTime.now().microsecondsSinceEpoch}-${_counter++}.mp3';
+        '$filePrefix-${DateTime.now().microsecondsSinceEpoch}-${_counter++}.$extension';
     return File('${tempDirectory.path}${Platform.pathSeparator}$name');
   }
 

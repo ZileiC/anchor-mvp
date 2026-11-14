@@ -43,3 +43,27 @@ participant data was used.
 
 Without a key the UI labels replies “离线模板回复”; without a recognizer/ASR provider the mic is
 disabled with an honest message. WER and dialect quality remain unmeasured (`docs/measurement.md`).
+
+## Voice output: DeepSeek TTS vs edge-tts (measured 2026-11-14)
+
+DeepSeek opened a TTS tool API on 2026-11-13 (`POST https://api.deepseek.com/v1/tools/tts`,
+`voice_id` `stella`/`tide`, `format` `wav`/`pcm`, no speed control). It is now the primary voice;
+Microsoft's edge-tts stays as the fallback. Measured on this machine, same three sentences, one
+run each, wall clock from request to complete body:
+
+| chars | DeepSeek TTS | edge-tts | audio length (DeepSeek) |
+|---|---|---|---|
+| 11 | **1.45 s** | 7.02 s | 2.36 s |
+| 26 | **1.69 s** | 7.18 s | 4.24 s |
+| 55 | **2.97 s** | 6.86 s | 10.80 s |
+| average | **2.04 s** | 7.02 s | — |
+
+So the wait before the senior hears anything drops by about **5 seconds per sentence** (≈3.4×
+faster). Two facts worth knowing, both observed rather than assumed:
+
+- DeepSeek answers **WAV**, not mp3, and the RIFF/data size fields arrive as `0xFFFFFFFF`
+  (streamed placeholders). Python's `wave` module refuses such a file, and players disagree about
+  it, so the adapter rewrites both size fields before handing the bytes on
+  (`normalize_wav`). The audio lengths above were read back from the repaired files.
+- There is **no speed control** in the API. The app's 「慢一点」 preference therefore only applies
+  when the fallback voice speaks; the DeepSeek voice always speaks at its natural pace.

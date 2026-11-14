@@ -108,6 +108,28 @@
   `test_an_unlinked_caregiver_cannot_configure_the_providers`；前端
   「a caregiver on the phone configures the AI as well」（真的填三个字段并保存，断言 PUT 内容）。
 
+### 0.1.4 2026-11-14：语音输出换成 DeepSeek TTS（快 5 秒），edge-tts 留作兜底
+
+DeepSeek 于 2026-11-13 开放了 TTS 接口（`POST https://api.deepseek.com/v1/tools/tts`，和对话模型同一个 host、同一把 key）。换过来的直接好处：**说完到出声的等待从约 7 秒降到约 2 秒**。
+
+| 改动 | 说明 |
+|---|---|
+| `backend/app/providers/tts_deepseek.py`（新） | `DeepSeekTTS`：`synthesize(text, voice, rate) -> WAV bytes`，失败一律 `provider_unavailable`。含 `normalize_wav()`——接口返回的是**流式 WAV**，RIFF 与 data 的长度字段都是 `0xFFFFFFFF` 占位，Python 的 `wave` 直接拒读、各播放器行为不一，这里把两个字段改写成真实长度 |
+| `backend/app/api/tts.py` | `get_tts()` 改为 `SpeechBackend`（主 + 兜底）：默认 DeepSeek，失败（429/503/504/超时/截断）自动用 edge-tts 说，两边都失败才 503。响应头 `X-Anchor-Voice` 说明这句话是谁说的 |
+| `backend/app/providers/tts.py` | `EdgeTTS` 增加 `media_type = "audio/mpeg"`（DeepSeek 是 `audio/wav`） |
+| `mobile/lib/services/speech_audio_format.dart`（新） | 按文件头嗅探容器（RIFF/WAVE → `.wav`，其余 → `.mp3`），两个平台的临时文件扩展名跟着容器走；启动清理也认 `.wav` 了 |
+| `backend/tests/test_tts_deepseek.py`（新，23 个） | WAV 契约、音色映射、HTTP/超时/空包/截断/HTML 错误页、key 不出现在错误里、header 修复、主备切换、环境变量选路 |
+| `docs/ai-live-evidence.md` | 实测：11/26/55 字三句，DeepSeek 1.45–2.97 s（均值 **2.04 s**），edge-tts 6.86–7.18 s（均值 **7.02 s**） |
+
+环境变量（打包版由 `entrypoint.py` 注入 key，不用手动设）：
+
+- `ANCHOR_TTS_PROVIDER` = `deepseek`（有 key 时的默认）或 `edge`（强制微软；没有 key 时自动）
+- `ANCHOR_TTS_API_KEY`（可选，和 `ANCHOR_LLM_API_KEY` 分开计费时用）
+- `ANCHOR_TTS_VOICE` = `stella`（默认，女声）/ `tide`（男声）
+- `ANCHOR_TTS_BASE_URL`（默认跟随 `ANCHOR_LLM_BASE_URL` 或 `https://api.deepseek.com`）
+
+**必须知道的限制**：DeepSeek TTS **没有语速参数**。所以「慢一点」这个偏好只在兜底的 edge-tts 上生效；DeepSeek 永远用自然语速。这是接口本身没有的能力，不是漏做。
+
 老人端界面这一天的重做见 `docs/design/senior-ui.md`：登录页（两张大牌：老人 / 家人）、首页（一个大圆盘 + 打电话）、聊天页（紧凑字幕 + 固定底部麦克风，停止条只在该出现时出现）。
 
 ---

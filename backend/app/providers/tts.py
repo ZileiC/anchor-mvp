@@ -91,6 +91,10 @@ def _edge_synthesize(
 class EdgeTTS:
     """Neural TTS adapter with an injectable synthesis seam for tests."""
 
+    #: What this adapter returns. The DeepSeek adapter answers audio/wav, so the
+    #: route reads this attribute instead of assuming mp3 (2026-11-14).
+    media_type = "audio/mpeg"
+
     def __init__(
         self,
         synth: Optional[Synth] = None,
