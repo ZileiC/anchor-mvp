@@ -18,6 +18,9 @@ Use participant codes such as P01. Note device, build, language, text scale, and
 6. “You no longer want your mood information shared. Please change that.”
 7. “Please remove this saved fact.” Identify one synthetic fact, not a participant’s private information.
 8. “You want to contact this consenting family member.” Stop before dialing if the number is a placeholder. For device testing, use only a number the team is authorized to call.
+9. “You’ve finished speaking. What is Anchor doing now?” Ask during a pending reply.
+10. “Find the latest report your family member shared with you.” Use the Android caregiver account.
+11. “The computer and phone can reach each other again. Please try to see the latest update.” Use Android after a controlled disconnect and reconnect. On Windows, ask the senior to continue the conversation after reconnecting. Record the two tasks separately.
 
 Do not point to controls before the first attempt. Log prompts and help separately. An abandoned task is an observation, not a failure of the participant.
 
@@ -27,16 +30,24 @@ Participant code: ____   Date: ____   Build: ____   Device: ____
 Language/text scale: ____   Prior familiarity: ____
 Consent recorded under course process: ____   Session stopped early: ____
 
-| Task | Attempted | Unaided completion | Aided completion | Abandoned | Seconds | Observed problem / participant wording |
-|---|---|---|---|---|---:|---|
-| Start conversation | | | | | | |
-| Recognition recovery | | | | | | |
-| Stop | | | | | | |
-| Find draft | | | | | | |
-| Approve sharing | | | | | | |
-| Revoke mood sharing | | | | | | |
-| Delete fact | | | | | | |
-| Contact family | | | | | | |
+Role (senior or caregiver): ____   Network and any simulated failure: ____
+
+| Task | Completion status | Unaided or aided | Time (s) | Error count | Observed confusion | Participant feedback |
+|---|---|---|---:|---:|---|---|
+| Windows · Start a conversation | | | | | | |
+| Windows · Explain what is happening while waiting | | | | | | |
+| Windows · Recover from speech recognition or capture failure | | | | | | |
+| Windows · Stop an active interaction | | | | | | |
+| Windows · Find and review a draft | | | | | | |
+| Windows · Approve sharing | | | | | | |
+| Android · View the latest shared digest | | | | | | |
+| Windows · Reconnect and continue the conversation | | | | | | |
+| Android · Reconnect and refresh the digest | | | | | | |
+| Windows · Revoke mood sharing | | | | | | |
+| Windows · Delete the selected fact | | | | | | |
+| Windows · Contact family | | | | | | |
+
+Mark completion as completed, incomplete, abandoned, or skipped. Record any hint and mark the attempt aided when the facilitator gives one. Start timing after the task prompt and stop at completion or abandonment. Count actions that lead away from the task or require correction. Record a simulated outage separately from participant errors. Keep the team's observations separate from the participant's words.
 
 For calls, record separately: dialer opened with correct number / recipient answered / participant confirmed conversation. Never combine these outcomes.
 

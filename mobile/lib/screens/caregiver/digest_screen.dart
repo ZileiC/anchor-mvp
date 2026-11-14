@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
+import '../../services/api_client.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
 import '../../widgets/call_helpers.dart';
@@ -26,6 +27,8 @@ class DigestScreen extends StatefulWidget {
 
 class _DigestScreenState extends State<DigestScreen> {
   bool _loading = false;
+  bool _hasLoaded = false;
+  ApiException? _loadError;
   int? _selectedId;
 
   @override
@@ -40,10 +43,14 @@ class _DigestScreenState extends State<DigestScreen> {
     // Always re-fetch (2026-11-12, borrowed from the TA5 fork): the older adult
     // may have revoked a topic since this screen opened, and a cached copy would
     // then show highlights they are no longer sharing.
-    await widget.state.loadDigests();
-    await widget.state.loadNotifications();
+    final error = await widget.state.loadDigests();
+    if (error == null) await widget.state.loadNotifications();
     if (!mounted) return;
-    setState(() => _loading = false);
+    setState(() {
+      _loading = false;
+      _hasLoaded = true;
+      _loadError = error;
+    });
   }
 
   Future<void> _callCheckIn(AppState state, Contact contact) async {
@@ -60,6 +67,8 @@ class _DigestScreenState extends State<DigestScreen> {
   Widget build(BuildContext context) {
     final state = AnchorScope.of(context);
     final l = state.l;
+    final checking = _loading || !_hasLoaded;
+    final error = _loadError;
     final selected = state.digests.where((d) => d.id == _selectedId);
     final digest = selected.isNotEmpty
         ? selected.first
@@ -78,7 +87,7 @@ class _DigestScreenState extends State<DigestScreen> {
           IconButton(
             key: const Key('refresh-digests'),
             tooltip: l.settingsRefresh,
-            onPressed: _loading ? null : _load,
+            onPressed: checking ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -89,26 +98,37 @@ class _DigestScreenState extends State<DigestScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              if (_loading) ...<Widget>[
+              if (checking) ...<Widget>[
                 const SizedBox(height: 6),
                 const LinearProgressIndicator(minHeight: 8),
+                const SizedBox(height: 10),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    l.t('正在确认家人仍在分享的内容…', 'Checking what is still shared…'),
+                    key: const Key('digest-checking'),
+                    style: AnchorTheme.reading,
+                  ),
+                ),
                 const SizedBox(height: 14),
-              ],
-              if (state.offline)
+              ] else if (error?.isOffline ?? false)
                 StatusBanner(
                   l: l,
-                  title: l.offlineTitle,
-                  body: l.caregiverNoDigest,
+                  title: l.t('暂时连不上电脑', 'Cannot reach the computer right now'),
+                  body: l.t(
+                    '请确认电脑上的 Anchor 已打开，并让两台设备连到同一网络，然后重试。',
+                    'Check that Anchor is open on the computer and both devices are on the same network. Then tap Retry.',
+                  ),
                   onRetry: _load,
-                ),
-              if (state.lastError != null && !state.offline)
+                )
+              else if (error != null && !error.isFeatureUnavailable)
                 StatusBanner(
                   l: l,
                   tone: BannerTone.problem,
-                  title: state.lastErrorText ?? l.unknownError,
+                  title: l.t('暂时看不到简报', 'Could not load the family update'),
                   onRetry: _load,
-                ),
-              if (state.digestFeatureMissing)
+                )
+              else if (state.digestFeatureMissing)
                 _quiet(l.caregiverDigestUnavailable)
               else if (digest == null)
                 _quiet(

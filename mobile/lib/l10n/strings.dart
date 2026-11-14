@@ -32,7 +32,7 @@ class L {
   String get loading => t('正在连接…', 'Connecting…');
   String get unknownError =>
       t('出了点小问题，再试一次。', 'Something went wrong. Please try again.');
-  String get offlineTitle => t('现在无法上网', 'No internet right now');
+  String get offlineTitle => t('暂时连不上', 'No connection right now');
   String get offlineBody => t(
     '在线聊天暂时用不了。你仍然可以停止、查看设置、玩已保存的活动，也可以打电话。',
     'Online conversation is unavailable. You can still stop, open settings, '
@@ -127,11 +127,19 @@ class L {
 
   // -- talk -----------------------------------------------------------------
   String get talkTitle => t('聊天', 'Talk');
-  String get talkStarting => t('正在打开麦克风…', 'Opening the microphone…');
+  String get talkStarting => t('正在开始聊天…', 'Opening conversation…');
+  String get talkWaiting => t('正在等回复…', 'Waiting for a reply…');
+  String get talkReconnecting => t('正在检查连接…', 'Checking the connection…');
+  String get talkDisconnected =>
+      t('暂时连不上聊天服务', 'Cannot reach Anchor right now');
+  String get talkReconnectHint => t(
+    '请点重试。连接恢复后就可以发送。',
+    'Tap Retry. You can send a message when the connection is back.',
+  );
   String get talkEmpty => t('说一句话开始吧。', 'Say something to begin.');
   String get you => t('你', 'You');
   String get anchor => t('Anchor', 'Anchor');
-  String get micOn => t('麦克风已打开', 'Microphone is on');
+  String get micOn => t('可以开始说话了', 'Ready to talk');
   String get micOff => t('麦克风已关闭', 'Microphone is off');
   String get listening => t('我在听', 'Listening');
   String get listeningHint =>
@@ -161,6 +169,8 @@ class L {
     '这个设备的麦克风用不了，可以打字。',
     'The microphone is unavailable here. You can type instead.',
   );
+  String get micNoAudio => t('没有录到声音', 'No audio was recorded');
+  String get retryMicrophone => t('再试一次麦克风', 'Try the microphone again');
   String get turnFailed => t('这句话没送出去。', 'That message did not go through.');
   String get sessionStopped => t('这次聊天已经停了。', 'This conversation has stopped.');
   String get needConsentCloud => t(

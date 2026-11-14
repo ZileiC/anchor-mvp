@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/conversation.dart';
+import '../../services/api_client.dart';
 import '../../services/speaker.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
@@ -39,7 +40,13 @@ class _TalkScreenState extends State<TalkScreen> {
   final ScrollController _streamController = ScrollController();
 
   bool _starting = false;
+  bool _reconnecting = false;
   bool _stoppedLocally = false;
+
+  bool get _inputBusy => _starting || _reconnecting || widget.state.sendingTurn;
+
+  bool get _canSend =>
+      !_inputBusy && !widget.state.offline && !widget.state.recording;
 
   /// Caption count of the previous frame. A repaint caused by anything else
   /// (speech flags, provider refreshes, a refreshed flower count) must not yank
@@ -105,20 +112,42 @@ class _TalkScreenState extends State<TalkScreen> {
     final state = widget.state;
     if (!mounted || _starting) return;
     if (state.hasActiveSession || state.offline) return;
+    final wasStopped = _stoppedLocally;
     setState(() => _starting = true);
-    final ok = await state.startConversation();
+    try {
+      final ok = await state.startConversation();
+      if (!mounted || (!wasStopped && _stoppedLocally)) return;
+      setState(() {
+        _stoppedLocally =
+            !ok && (wasStopped || state.lastError?.code == 'consent_required');
+      });
+    } on ApiCancelled {
+      // Stop may be pressed before the opening request returns.
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  Future<void> _retryConnection() async {
+    if (_reconnecting) return;
+    setState(() => _reconnecting = true);
+    final connected = await widget.state.checkBackendConnection();
     if (!mounted) return;
-    setState(() {
-      _starting = false;
-      _stoppedLocally = !ok && state.lastError?.code == 'consent_required';
-    });
+    setState(() => _reconnecting = false);
+    if (connected && !_stoppedLocally) {
+      await _ensureSession();
+      await _refreshProviders();
+    }
   }
 
   Future<void> _sendText() async {
     final text = _controller.text;
-    if (text.trim().isEmpty) return;
-    _controller.clear();
-    setState(() => _stoppedLocally = false);
+    if (!_canSend || text.trim().isEmpty) return;
+    if (!widget.state.hasActiveSession) {
+      await _ensureSession();
+      if (!mounted || _stoppedLocally || !widget.state.hasActiveSession) return;
+    }
+    if (_controller.text == text) _controller.clear();
     await widget.state.sendText(text);
   }
 
@@ -211,6 +240,7 @@ class _TalkScreenState extends State<TalkScreen> {
   }
 
   Future<void> _retryTurn() async {
+    if (_inputBusy) return;
     await widget.state.retryLastTurn();
     if (mounted) setState(() {});
   }
@@ -219,6 +249,7 @@ class _TalkScreenState extends State<TalkScreen> {
   /// card, records the result and posts the choice as the next chat turn, so
   /// nothing here decides anything: the screen only forwards the tap.
   Future<void> _answerInline(int index) async {
+    if (!_canSend) return;
     await widget.state.answerInlineActivity(index);
     if (mounted) setState(() {});
   }
@@ -237,6 +268,7 @@ class _TalkScreenState extends State<TalkScreen> {
   }
 
   Future<void> _toggleMic() async {
+    if (_inputBusy || widget.state.offline) return;
     final state = widget.state;
     if (!state.recording && !state.asrConfigured) {
       await _showAsrUnavailableDialog();
@@ -247,7 +279,6 @@ class _TalkScreenState extends State<TalkScreen> {
     } else {
       await state.startRecording();
     }
-    if (mounted) setState(() {});
   }
 
   Future<void> _repeat() async {
@@ -353,8 +384,10 @@ class _TalkScreenState extends State<TalkScreen> {
                   StatusBanner(
                     l: l,
                     title: l.offlineTitle,
-                    body: l.offlineBody,
-                    onRetry: _ensureSession,
+                    body: _reconnecting
+                        ? l.talkReconnecting
+                        : l.talkReconnectHint,
+                    onRetry: _inputBusy ? null : _retryConnection,
                     extraAction: OutlinedButton.icon(
                       key: const Key('talk-type-instead'),
                       onPressed: _focusTyping,
@@ -368,7 +401,7 @@ class _TalkScreenState extends State<TalkScreen> {
                     tone: BannerTone.problem,
                     title: l.providerUnavailableTitle,
                     body: l.providerUnavailableBody,
-                    onRetry: _retryTurn,
+                    onRetry: _inputBusy ? null : _retryTurn,
                     extraAction: OutlinedButton.icon(
                       key: const Key('talk-provider-type-instead'),
                       onPressed: _focusTyping,
@@ -388,11 +421,24 @@ class _TalkScreenState extends State<TalkScreen> {
                       label: Text(l.typeInstead),
                     ),
                   ),
-                if (state.micUnavailable)
+                if ((state.micUnavailable || state.micFailed) &&
+                    !_stoppedLocally &&
+                    !consentError &&
+                    !state.offline)
                   StatusBanner(
                     l: l,
-                    title: l.micUnavailable,
+                    title: state.micUnavailable
+                        ? l.micUnavailable
+                        : l.micNoAudio,
                     tone: BannerTone.notice,
+                    onRetry: _inputBusy || state.recording ? null : _toggleMic,
+                    retryLabel: l.retryMicrophone,
+                    extraAction: OutlinedButton.icon(
+                      key: const Key('talk-capture-type-instead'),
+                      onPressed: _focusTyping,
+                      icon: const Icon(Icons.keyboard, size: 28),
+                      label: Text(l.typeInstead),
+                    ),
                   ),
                 if (state.showOfflineLlmBadge) ...<Widget>[
                   _offlineLlmBadge(l),
@@ -406,7 +452,7 @@ class _TalkScreenState extends State<TalkScreen> {
                   InlineActivityCard(
                     l: l,
                     activity: state.inlineActivity!,
-                    onChoose: _answerInline,
+                    onChoose: _canSend ? _answerInline : null,
                     flowers: state.flowers,
                     awarded: state.lastAnswerAwarded,
                   ),
@@ -468,7 +514,12 @@ class _TalkScreenState extends State<TalkScreen> {
     // synthesising, and said nothing at all while the device voice was trying to
     // take over. Colour is never the only channel here — each state has words.
     final phase = state.speechPhase;
-    final label = recording
+    final waiting = !_stoppedLocally && state.sendingTurn;
+    final label = _reconnecting
+        ? l.talkReconnecting
+        : state.offline
+        ? l.talkDisconnected
+        : recording
         ? l.listening
         : phase == SpeechPhase.playing
         ? l.t('正在朗读，随时可以停止。', 'Speaking. You can stop at any time.')
@@ -479,6 +530,8 @@ class _TalkScreenState extends State<TalkScreen> {
           )
         : phase == SpeechPhase.preparing
         ? l.t('正在准备语音，文字已显示。', 'Preparing the voice; you can read the reply.')
+        : waiting
+        ? l.talkWaiting
         : (!asrReady
               ? l.micNotConnected
               : on
@@ -507,7 +560,7 @@ class _TalkScreenState extends State<TalkScreen> {
               ),
             ),
           ),
-          if (state.sendingTurn)
+          if (waiting || _reconnecting)
             const SizedBox(
               width: 22,
               height: 22,
@@ -534,7 +587,7 @@ class _TalkScreenState extends State<TalkScreen> {
             l: l,
             asrReady: state.asrConfigured,
             recording: state.recording,
-            onPressed: _toggleMic,
+            onPressed: _inputBusy || state.offline ? null : _toggleMic,
           ),
         ],
       ),
@@ -564,7 +617,7 @@ class _TalkScreenState extends State<TalkScreen> {
       alignment: Alignment.centerLeft,
       child: OutlinedButton.icon(
         key: const Key('talk-repeat'),
-        onPressed: _repeat,
+        onPressed: _inputBusy || widget.state.recording ? null : _repeat,
         icon: const Icon(Icons.replay, size: 28),
         label: Text(l.repeat, style: const TextStyle(fontSize: 26)),
       ),
@@ -672,7 +725,7 @@ class _TalkScreenState extends State<TalkScreen> {
               key: const Key('talk-send'),
               icon: const Icon(Icons.send, size: 30),
               tooltip: l.send,
-              onPressed: _sendText,
+              onPressed: _canSend ? _sendText : null,
             ),
           ),
         ),
@@ -755,7 +808,7 @@ class _MicButton extends StatefulWidget {
   final L l;
   final bool asrReady;
   final bool recording;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   State<_MicButton> createState() => _MicButtonState();

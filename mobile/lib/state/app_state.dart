@@ -315,6 +315,27 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Check the service without posting a conversation turn.
+  Future<bool> checkBackendConnection() async {
+    final ticket = api.nonce.value;
+    try {
+      final health = await api.health();
+      if (!api.nonce.isCurrent(ticket)) return false;
+      if (!health.isOk) return false;
+      offline = false;
+      lastError = null;
+      notifyListeners();
+      return true;
+    } on ApiCancelled {
+      return false;
+    } on ApiException catch (error) {
+      if (!api.nonce.isCurrent(ticket)) return false;
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Marks a feature endpoint as absent so the UI shows a friendly note instead
   /// of repeating a failing request (SPEC: degrade when an endpoint 404s).
   void _noteFeature(String path, ApiException error) {
@@ -460,19 +481,30 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> loadDigests() async {
+  Future<ApiException?> loadDigests() async {
     try {
       final list = await api.digests();
       digests = list.digests;
       digestNote = list.note;
       digestFeatureMissing = false;
+      if (isCaregiver) {
+        offline = false;
+        if (lastError?.isOffline ?? false) lastError = null;
+      }
       notifyListeners();
+      return null;
     } on ApiException catch (error) {
       _noteFeature('digests', error);
       // Never keep an old family copy visible after a failed permission
       // refresh: consent may have changed since this copy was fetched.
-      if (isCaregiver) digests = <Digest>[];
+      if (isCaregiver) {
+        digests = <Digest>[];
+        digestNote = '';
+        notifications = <AppNotification>[];
+      }
       if (!error.isFeatureUnavailable) _fail(error);
+      notifyListeners();
+      return error;
     }
   }
 
@@ -529,7 +561,10 @@ class AppState extends ChangeNotifier {
       notifications = await api.notifications();
       notifyListeners();
     } on ApiException catch (error) {
-      if (!error.isFeatureUnavailable) _fail(error);
+      notifications = <AppNotification>[];
+      if (!error.isFeatureUnavailable)
+        debugPrint('Notifications unavailable: $error');
+      notifyListeners();
     }
   }
 
