@@ -211,3 +211,13 @@ supersede it with a new entry.
   Windows seed. Build Android with a different identifier. The architecture remains
   LAN-only and the dialer remains an OS handoff. No production security or medical
   outcome claims are added. Old release binaries are not regenerated on macOS.
+
+## 2026-11-14 — Keep local provider credentials out of Windows builds
+
+- **Context.** The packaging script embedded a locally ignored credential file in the backend.
+  Recursive ZIP staging could also copy runtime files from a used Flutter output.
+- **Decision.** Bundle explicit backend resources, inspect the executable and ZIP at build time,
+  and load provider credentials only at runtime. Remove the affected prebuilt backend from source
+  checkouts. The release owner verifies and distributes replacement ZIPs separately.
+- **Consequences.** Phone setup and local runtime configuration remain available.
+  The release owner rotates affected keys and handles earlier downloads.
