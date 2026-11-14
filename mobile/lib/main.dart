@@ -1,8 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'platform_policy.dart';
 import 'services/api_client.dart';
 import 'services/backend_address_store.dart';
 import 'services/app_log.dart';
@@ -24,7 +25,13 @@ Future<void> main() async {
   // The phone's backend address is chosen on the phone, not compiled in: the
   // computer's LAN address changes with the Wi-Fi. Read it before the client is
   // built so the first probe already talks to the right machine.
-  final savedAddress = await const BackendAddressStore().load();
+  // Only the phone has a choosable address. The appliance is the backend, so it
+  // always talks to the copy next to it over loopback — a stored LAN address on
+  // the computer is always wrong (2026-11-14: one made the desktop app unable to
+  // reach its own backend).
+  final savedAddress = PlatformPolicy.fromPlatform().setupApp
+      ? await const BackendAddressStore().load()
+      : null;
   // The Windows Home screen prints 'address for the phone: http://<lan>:8077',
   // so look the LAN address up once here instead of on every rebuild.
   unawaited(probeLanAddress());
@@ -45,6 +52,8 @@ Future<void> main() async {
   // has to double-click anchor_app.exe. On other platforms (and when the API is
   // remote) this resolves immediately and nothing is spawned. The gate shows the
   // splash while the probe/launch runs and a retry card if it fails.
+  // The login line says whether the address was chosen here or inherited.
+  state.addressChosenHere = savedAddress != null;
   final startup = BackendStartup(bootstrapper: createBackendBootstrapper())
     ..attachLifecycle();
   runApp(AnchorApp(state: state, startup: startup));

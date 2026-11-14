@@ -7,6 +7,7 @@ import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/state/app_state.dart';
 import 'package:anchor_app/state/invitation_controller.dart';
 import 'package:anchor_app/platform_policy.dart';
+import 'package:anchor_app/services/backend_address_store.dart';
 import 'package:anchor_app/services/backend_discovery.dart';
 import 'package:anchor_app/models/models.dart';
 import 'package:flutter/widgets.dart';
@@ -679,6 +680,7 @@ AppState buildTestState(
   MicrophoneInput? microphone,
   PlatformPolicy policy = const PlatformPolicy.seniorAppliance(),
   BackendDiscovery? discovery,
+  BackendAddressStore? addressStore,
   Duration probeDuration = Duration.zero,
   Duration answerDuration = Duration.zero,
 }) {
@@ -690,6 +692,7 @@ AppState buildTestState(
     dialer: dialer ?? FakeDialer(),
     policy: policy,
     discovery: discovery ?? const NoNetworkDiscovery(),
+    addressStore: addressStore ?? InMemoryAddressStore(),
     now: clock,
     probeDuration: probeDuration,
     answerDuration: answerDuration,

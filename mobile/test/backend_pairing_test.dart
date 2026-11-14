@@ -93,18 +93,21 @@ void main() {
     expect(state.api.baseUrl, before);
   });
 
-  test('the Windows appliance never searches', () async {
+  test('the Windows appliance never searches, and points at loopback', () async {
     final discovery = _ScriptedDiscovery(
+      healthy: <String>{'http://127.0.0.1:8077'},
       found: const DiscoveredBackend(
         baseUrl: 'http://192.168.43.57:8077',
         host: '192.168.43.57',
         via: 'beacon',
       ),
     );
-    final state = buildTestState(FakeApi(), discovery: discovery);
+    final state = buildTestState(FakeApi(), discovery: discovery)
+      ..api.retarget('http://192.168.43.57:8077');
 
     expect(await state.autoBind(), isTrue);
     expect(discovery.searches, 0, reason: 'the appliance IS the backend');
-    expect(state.pairing, PairingState.idle);
+    // Whatever was in the address file, the appliance talks to its own backend.
+    expect(state.api.baseUrl, contains('127.0.0.1'));
   });
 }

@@ -47,6 +47,7 @@ class AppState extends ChangeNotifier {
     required this.speaker,
     required this.microphone,
     required this.dialer,
+    this.addressStore = const BackendAddressStore(),
     PlatformPolicy? policy,
     CredentialStore? credentials,
     BackendDiscovery? discovery,
@@ -1525,7 +1526,13 @@ class AppState extends ChangeNotifier {
   /// True when the address in use was typed in on this device (and survives a
   /// restart). False on a fresh phone install: the compiled-in default is only a
   /// guess there, and the login screen says so.
-  bool addressChosenHere = BackendAddressStore.hasSaved;
+  /// Where the phone remembers its address. Injectable so a test can never
+  /// rewrite the machine's real file (that is exactly how the desktop app once
+  /// ended up pointing at a test's fake address, 2026-11-14).
+  final BackendAddressStore addressStore;
+
+  /// True when the address in use was chosen on this device.
+  bool addressChosenHere = false;
 
   /// Finds the computer and binds to it, with nobody typing an address.
   ///
@@ -1533,10 +1540,28 @@ class AppState extends ChangeNotifier {
   /// replaced (a demo on a fixed network must not start hunting), and anything
   /// discovery returns is verified over HTTP before it is adopted.
   ///
-  /// Runs only on the phone: the Windows appliance *is* the backend, so there is
-  /// nothing for it to find.
+  /// On the **appliance** there is nothing to find: the backend is the process the
+  /// app starts itself, so its address is the compiled-in loopback and never a LAN
+  /// address. This branch also heals a machine that was left pointing somewhere
+  /// else — which happened: the desktop app once loaded a stored 192.168.43.57 and
+  /// could not reach its own backend, i.e. exactly the failure this app must never
+  /// show ("the computer itself must always connect").
   Future<bool> autoBind() async {
-    if (!policy.setupApp) return true;
+    if (!policy.setupApp) {
+      final loopback = AnchorConfig.apiBase;
+      if (api.baseUrl != loopback) {
+        debugPrint(
+          'Appliance address ${api.baseUrl} is not the bundled backend; '
+          'using $loopback.',
+        );
+        api.retarget(loopback);
+        pairing = PairingState.idle;
+      }
+      final healthy = await _healthOf(loopback);
+      if (healthy) addressChosenHere = true;
+      notifyListeners();
+      return healthy;
+    }
     if (pairing == PairingState.searching) return false;
     pairing = PairingState.searching;
     notifyListeners();
@@ -1564,7 +1589,7 @@ class AppState extends ChangeNotifier {
       offline = false;
       lastError = null;
       addressChosenHere = true;
-      await const BackendAddressStore().save(found.baseUrl);
+      await addressStore.save(found.baseUrl);
       pairing = PairingState.bound;
       notifyListeners();
       return true;

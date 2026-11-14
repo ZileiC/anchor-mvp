@@ -90,8 +90,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _autoBind() async {
     final state = widget.state;
-    if (!state.policy.setupApp) return;
-    if (state.pairing == PairingState.bound) return;
+    // Runs on both shapes: the phone searches, the appliance re-points itself at
+    // its bundled backend (and heals a wrong address). AppState decides.
+    if (state.policy.setupApp && state.pairing == PairingState.bound) return;
     setState(() => _binding = true);
     await state.autoBind();
     if (!mounted) return;
