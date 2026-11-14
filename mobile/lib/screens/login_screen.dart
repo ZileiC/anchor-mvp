@@ -32,6 +32,13 @@ class _LoginScreenState extends State<LoginScreen> {
       _signingIn = true;
       _failed = false;
     });
+    // A tap that arrives before the search finished must not turn into a fake
+    // 'offline': finish binding first (2026-11-14).
+    if (widget.state.policy.setupApp &&
+        widget.state.pairing != PairingState.bound) {
+      await widget.state.autoBind();
+      if (!mounted) return;
+    }
     final ok = await widget.state.signInDemo(userId);
     if (!mounted) return;
     setState(() {
@@ -68,6 +75,27 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     ScaffoldMessenger.maybeOf(context)
         ?.showSnackBar(SnackBar(content: Text(l.backendAddressSaved)));
+  }
+
+  bool _binding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // The phone looks for the computer by itself on first open (2026-11-14).
+    // Before this, the family had to read an address off the computer screen and
+    // type it in, which is exactly the step the owner refused to accept.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoBind());
+  }
+
+  Future<void> _autoBind() async {
+    final state = widget.state;
+    if (!state.policy.setupApp) return;
+    if (state.pairing == PairingState.bound) return;
+    setState(() => _binding = true);
+    await state.autoBind();
+    if (!mounted) return;
+    setState(() => _binding = false);
   }
 
   @override
@@ -135,6 +163,76 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   const SizedBox(height: 28),
+                  // Automatic binding, 2026-11-14. The phone finds the computer
+                  // on its own; this is the only line the family has to read
+                  // about it, and it is written as a status, not a setting.
+                  if (state.policy.setupApp) ...<Widget>[
+                    if (_binding || state.pairing == PairingState.searching)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              l.t('正在找这台电脑…', 'Looking for the computer…'),
+                              key: const Key('pairing-searching'),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                color: AnchorTheme.inkSoft,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (state.pairing == PairingState.bound)
+                      Text(
+                        l.t(
+                          '已连上电脑，选一个身份就能用。',
+                          'Connected to the computer. Pick who is using it.',
+                        ),
+                        key: const Key('pairing-bound'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AnchorTheme.jade,
+                        ),
+                      )
+                    else if (state.pairing == PairingState.notFound)
+                      Column(
+                        children: <Widget>[
+                          Text(
+                            l.t(
+                              '没找到电脑。确认电脑上的 Anchor 已经打开、手机和电脑在同一个 Wi-Fi（或手机热点）。',
+                              'No computer found. Check that Anchor is open on the '
+                                  'computer and both are on the same Wi-Fi (or the '
+                                  'phone hotspot).',
+                            ),
+                            key: const Key('pairing-not-found'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              color: AnchorTheme.brick,
+                              height: 1.35,
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: const Key('pairing-retry'),
+                            onPressed: _signingIn ? null : _autoBind,
+                            icon: const Icon(Icons.wifi_find, size: 22),
+                            label: Text(
+                              l.t('再找一次', 'Search again'),
+                              style: const TextStyle(fontSize: 22),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                   // Honest about where the address came from (2026-11-12): on the
                   // phone a compiled-in value is a guess, so it is labelled 还没设置
                   // instead of being shown as if it were the computer's address.

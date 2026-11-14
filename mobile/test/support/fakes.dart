@@ -7,6 +7,7 @@ import 'package:anchor_app/services/tts_service.dart';
 import 'package:anchor_app/state/app_state.dart';
 import 'package:anchor_app/state/invitation_controller.dart';
 import 'package:anchor_app/platform_policy.dart';
+import 'package:anchor_app/services/backend_discovery.dart';
 import 'package:anchor_app/models/models.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -677,6 +678,7 @@ AppState buildTestState(
   DateTime Function()? now,
   MicrophoneInput? microphone,
   PlatformPolicy policy = const PlatformPolicy.seniorAppliance(),
+  BackendDiscovery? discovery,
   Duration probeDuration = Duration.zero,
   Duration answerDuration = Duration.zero,
 }) {
@@ -687,6 +689,7 @@ AppState buildTestState(
     microphone: microphone ?? UnavailableMicrophoneInput(),
     dialer: dialer ?? FakeDialer(),
     policy: policy,
+    discovery: discovery ?? const NoNetworkDiscovery(),
     now: clock,
     probeDuration: probeDuration,
     answerDuration: answerDuration,
@@ -772,6 +775,28 @@ ActivityFeed threeActivityFeed() => const ActivityFeed(
   ],
   rotation: <String>['trivia-1', 'story-1', 'memory-1'],
 );
+
+/// Test discovery: nothing to find, ever.
+///
+/// The app's real discovery opens UDP sockets and sweeps /24s. Every widget test
+/// that renders the login screen would otherwise run a network search on its
+/// first frame. Reporting "the current address already works" keeps the pairing
+/// state at bound, which is exactly the state a demo phone is in.
+class NoNetworkDiscovery extends BackendDiscovery {
+  const NoNetworkDiscovery({this.healthy = true});
+
+  /// False models the phone that has not found anything yet.
+  final bool healthy;
+
+  @override
+  Future<bool> healthOf(String baseUrl) async => healthy;
+
+  @override
+  Future<DiscoveredBackend?> discover({
+    Duration budget = const Duration(seconds: 6),
+    Future<bool> Function(String baseUrl)? verify,
+  }) async => null;
+}
 
 /// Pumps the whole app and signs in with the demo role buttons.
 Future<void> pumpSignedIn(

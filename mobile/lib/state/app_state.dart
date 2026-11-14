@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../platform_policy.dart';
 import '../services/api_client.dart';
 import '../services/backend_address_store.dart';
+import '../services/backend_discovery.dart';
 import '../services/credential_store.dart';
 import '../services/dialer.dart';
 import '../services/invitation_scheduler.dart';
@@ -18,6 +19,21 @@ import 'activity_grading.dart';
 import 'activity_rotation.dart';
 import 'inline_activity.dart';
 import 'invitation_controller.dart';
+
+/// Where the phone's automatic binding stands (2026-11-14).
+enum PairingState {
+  /// Nothing tried yet (the appliance never leaves this).
+  idle,
+
+  /// Broadcasting / sweeping the local network for the computer.
+  searching,
+
+  /// Connected: the address answers /api/v1/health.
+  bound,
+
+  /// Nothing answered. The family can still type an address by hand.
+  notFound,
+}
 
 /// One place for every piece of app state: identity, consent snapshot,
 /// preferences, the active conversation and the cancellation state (SPEC §9).
@@ -33,12 +49,14 @@ class AppState extends ChangeNotifier {
     required this.dialer,
     PlatformPolicy? policy,
     CredentialStore? credentials,
+    BackendDiscovery? discovery,
     DateTime Function()? now,
     InvitationController? invitationController,
     Duration invitationInterval = const Duration(seconds: 60),
     this.probeDuration = const Duration(seconds: 3),
     this.answerDuration = const Duration(seconds: 4),
   }) : policy = policy ?? PlatformPolicy.instance,
+       discovery = discovery ?? const BackendDiscovery(),
        credentials = credentials ?? CredentialStore(),
        _now = now ?? DateTime.now {
     invitations =
@@ -63,6 +81,16 @@ class AppState extends ChangeNotifier {
 
   final ApiClient api;
   final Speaker speaker;
+
+  /// Finds the computer on the local network (phone only). Injectable so tests
+  /// never touch a socket.
+  final BackendDiscovery discovery;
+
+  /// What the phone's auto-binding is doing right now, shown on the login screen.
+  PairingState pairing = PairingState.idle;
+
+  /// The computer found by auto-binding, for the status line.
+  DiscoveredBackend? pairedBackend;
   final MicrophoneInput microphone;
   final Dialer dialer;
   final CredentialStore credentials;
@@ -1498,6 +1526,58 @@ class AppState extends ChangeNotifier {
   /// restart). False on a fresh phone install: the compiled-in default is only a
   /// guess there, and the login screen says so.
   bool addressChosenHere = BackendAddressStore.hasSaved;
+
+  /// Finds the computer and binds to it, with nobody typing an address.
+  ///
+  /// 2026-11-14. The order matters: an address that already works is never
+  /// replaced (a demo on a fixed network must not start hunting), and anything
+  /// discovery returns is verified over HTTP before it is adopted.
+  ///
+  /// Runs only on the phone: the Windows appliance *is* the backend, so there is
+  /// nothing for it to find.
+  Future<bool> autoBind() async {
+    if (!policy.setupApp) return true;
+    if (pairing == PairingState.searching) return false;
+    pairing = PairingState.searching;
+    notifyListeners();
+    try {
+      // 1. An address that already answers wins: no need to search, and it keeps
+      //    a manually typed address working on a network with no broadcast.
+      if (await _healthOf(api.baseUrl)) {
+        pairing = PairingState.bound;
+        notifyListeners();
+        return true;
+      }
+      // 2. Search.
+      final found = await discovery.discover();
+      if (found == null) {
+        pairing = PairingState.notFound;
+        notifyListeners();
+        return false;
+      }
+      pairedBackend = found;
+      api.retarget(found.baseUrl);
+      credentials.clear();
+      api.token = null;
+      profile = null;
+      providers = null;
+      offline = false;
+      lastError = null;
+      addressChosenHere = true;
+      await const BackendAddressStore().save(found.baseUrl);
+      pairing = PairingState.bound;
+      notifyListeners();
+      return true;
+    } on Object {
+      pairing = PairingState.notFound;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// One quick health question, with its own short timeout (a search must not
+  /// inherit the 90 s budget a spoken turn needs).
+  Future<bool> _healthOf(String baseUrl) => discovery.healthOf(baseUrl);
 
   /// Repoints the whole client (and the screens that read the address) at
   /// another backend, then signs out.

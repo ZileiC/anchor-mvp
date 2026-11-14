@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -30,6 +30,8 @@ Future<void> main() async {
   unawaited(probeLanAddress());
   // Drop speech mp3s a previous run never cleaned up (crash / killed child).
   unawaited(sweepStaleTtsFiles());
+  // No saved address on a phone means "find the computer", not "127.0.0.1": the
+  // login screen runs the search on its first frame (2026-11-14).
   final api = ApiClient(baseUrl: savedAddress);
   final state = AppState(
     api: api,

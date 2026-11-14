@@ -199,6 +199,23 @@ def main() -> int:
 
         seed_demo(database, application.state.clock, settings, demo_window=True)
 
+    # Answer the phone's "where are you?" probes (2026-11-14). Started here, after
+    # the port is ours, so a second copy never steals the discovery port from the
+    # backend that is actually serving. Not started in a development run: dev
+    # clients use 127.0.0.1 explicitly and a stray responder on a laptop would
+    # confuse anyone testing two checkouts at once.
+    responder = None
+    if is_frozen():
+        from app.discovery import DEFAULT_DISCOVERY_PORT, DiscoveryResponder
+
+        responder = DiscoveryResponder(
+            http_port=port,
+            discovery_port=int(
+                os.environ.get("ANCHOR_DISCOVERY_PORT", DEFAULT_DISCOVERY_PORT)
+            ),
+        )
+        responder.start()
+
     try:
         uvicorn.run(application, host=host, port=port, log_level="warning")
     except SystemExit as exc:
@@ -212,6 +229,9 @@ def main() -> int:
         if _is_port_in_use_error(exc) or _port_listening(port):
             return 0
         raise
+    finally:
+        if responder is not None:
+            responder.stop()
     return 0
 
 
