@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import socket
 import threading
+import time
 from typing import Any, Optional
 
 #: The exact bytes a phone sends to ask "is an Anchor backend here?".
@@ -66,7 +67,7 @@ class DiscoveryResponder:
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> bool:
-        """Bind and start answering. False when an Anchor already answers here.
+        """Start answering. False only when another Anchor already answers here.
 
         A second backend on the same machine is a normal situation (the desktop
         app already started one), so this is not an error: the first responder
@@ -75,28 +76,44 @@ class DiscoveryResponder:
         The port is probed *before* binding: Windows happily lets two UDP sockets
         share a port when SO_REUSEADDR is set, and then replies land on whichever
         socket the stack picked — a coin toss that produces "sometimes it works".
+
+        Binding is retried inside the thread, 2026-11-14: a half-dead leftover
+        backend (a killed PyInstaller one-file keeps its child alive) can hold the
+        port for a few seconds after the app starts. Without the retry the *live*
+        backend stays invisible until someone restarts it, which is exactly the
+        "it worked a minute ago and now it never connects" that a demo cannot
+        afford.
         """
         if self._port_answers():
             self._debug(
                 f"discovery: another Anchor backend already answers on UDP {self.discovery_port}"
             )
             return False
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(0.5)
-            sock.bind(("", self.discovery_port))
-        except OSError as error:
-            self._debug(f"discovery: cannot listen on UDP {self.discovery_port}: {error}")
-            return False
-        self._sock = sock
         self._thread = threading.Thread(
             target=self._serve, name="anchor-discovery", daemon=True
         )
         self._thread.start()
-        self._debug(
-            f"discovery: answering UDP {self.discovery_port} probes for port {self.http_port}"
-        )
+        # Give the first bind attempt a moment so the common case is known here.
+        deadline = 1.0
+        waited = 0.0
+        while waited < deadline and self._sock is None and not self._stop.is_set():
+            threading.Event().wait(0.05)
+            waited += 0.05
+        if self._sock is None:
+            self._debug(
+                f"discovery: UDP {self.discovery_port} busy; will keep retrying in the background"
+            )
         return True
+
+    def _bind(self) -> Optional[socket.socket]:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(0.5)
+            sock.bind(("", self.discovery_port))
+            return sock
+        except OSError as error:
+            self._debug(f"discovery: cannot listen on UDP {self.discovery_port}: {error}")
+            return None
 
     def _port_answers(self) -> bool:
         """True when an Anchor backend already replies to a probe here."""
@@ -124,10 +141,25 @@ class DiscoveryResponder:
 
     # -- serving -----------------------------------------------------------
     def _serve(self) -> None:
-        sock = self._sock
-        if sock is None:
-            return
+        retry_at = 0.0
         while not self._stop.is_set():
+            sock = self._sock
+            if sock is None:
+                # Bind (again): the port may have been held by a dying leftover.
+                now = time.monotonic()
+                if now >= retry_at:
+                    sock = self._bind()
+                    if sock is None:
+                        retry_at = now + 2.0
+                        self._stop.wait(0.2)
+                        continue
+                    self._sock = sock
+                    self._debug(
+                        f"discovery: answering UDP {self.discovery_port} probes for port {self.http_port}"
+                    )
+                else:
+                    self._stop.wait(0.2)
+                    continue
             try:
                 data, address = sock.recvfrom(MAX_PROBE_SIZE)
             except socket.timeout:
