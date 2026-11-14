@@ -48,8 +48,9 @@ def fake_synth() -> FakeSynth:
 
 
 @pytest.fixture
-def fake_tts(app, fake_synth: FakeSynth) -> FakeSynth:
-    """Point the route's dependency at the fake; no network is reachable."""
+def fake_tts(app, senior, fake_synth: FakeSynth) -> FakeSynth:
+    """Exercise the cloud TTS contract with consent and a stub transport."""
+    helpers.seed_consents(app, senior, cloud_processing=True)
     app.dependency_overrides[tts_api.get_tts] = lambda: EdgeTTS(synth=fake_synth)
     yield fake_synth
     app.dependency_overrides.pop(tts_api.get_tts, None)

@@ -198,6 +198,7 @@ class ConversationOrchestrator:
                 raise validation_error("audio_b64 is not valid base64") from exc
             if not audio:
                 raise validation_error("audio_b64 is empty")
+            self.consent.require(senior_id, "cloud_processing")
             utterance = self.providers["asr"].transcribe(audio, audio_mime or "audio/wav")
             # Audio is never persisted, only transcribed in memory.
         elif isinstance(text, str):
@@ -354,6 +355,7 @@ class ConversationOrchestrator:
         system = build_system_prompt(senior, prefs, remembered, locale=locale)
         history = self._history(session_id, utterance)
         max_words = 20 if prefs["short_replies"] else 40
+        self.consent.require(senior_id, "cloud_processing")
         reply = self.providers["llm"].reply(system, history, max_words=max_words)
         if not is_clean(reply):
             reply = TEXT[locale]["safe_reply"]

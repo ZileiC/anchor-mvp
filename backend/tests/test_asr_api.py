@@ -130,8 +130,9 @@ def test_transcribe_payload_over_eight_megabytes_is_422(client, senior_token, as
 
 # -- provider failures -----------------------------------------------------
 def test_transcribe_provider_failure_is_503_with_the_standard_envelope(
-    client, senior_token, app
+    client, senior, senior_token, app
 ):
+    helpers.seed_consents(app, senior, cloud_processing=True)
     app.state.ctx.providers["asr"] = FailingASR()
 
     response = post(client, senior_token, {"audio_b64": encode(WAV)})

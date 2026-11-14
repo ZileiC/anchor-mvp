@@ -29,25 +29,16 @@ def require_caregiver(user: dict[str, Any] = Depends(current_user)) -> dict[str,
     return user
 
 
-def require_setup_access(
+def require_household_senior_id(
     request: Request,
     user: dict[str, Any] = Depends(current_user),
-) -> dict[str, Any]:
-    """Who may configure the AI providers.
-
-    Decided 2026-11-11: which model and which speech service the appliance talks
-    to is **device configuration**, not the older adult's private information.
-    The family sets it up with them, on the phone, at first run — the older
-    adult's own privacy is about consents, memories, conversations and what gets
-    shared, and those stay senior-only.
-
-    So both roles may read, write and probe the providers, but a caregiver has to
-    actually be connected: an account with no accepted link is a stranger.
-    """
+) -> int:
+    """Resolve the senior for provider setup or speech from authenticated data."""
     if user["role"] == "senior":
-        return user
+        return int(user["id"])
     if user["role"] != "caregiver":
         raise forbidden("This action belongs to the older adult or their family.")
-    if get_context(request).relationships.linked_senior(int(user["id"])) is None:
+    link = get_context(request).relationships.linked_senior(int(user["id"]))
+    if link is None:
         raise forbidden("This family connection is not active.")
-    return user
+    return int(link["senior_id"])

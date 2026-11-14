@@ -24,7 +24,7 @@ edge-tts voice name.
 from __future__ import annotations
 
 import os
-from typing import Any, Optional, Protocol
+from typing import Callable, Optional, Protocol
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
@@ -32,7 +32,7 @@ from pydantic import BaseModel
 from ..errors import AppError, provider_unavailable, validation_error
 from ..providers.tts import MAX_TEXT_CHARS, EdgeTTS
 from ..providers.tts_deepseek import DEFAULT_BASE_URL, DeepSeekTTS
-from .deps import current_user
+from .deps import get_context, require_household_senior_id
 
 router = APIRouter(tags=["tts"])
 
@@ -73,7 +73,12 @@ class SpeechBackend:
         self.media_type = getattr(primary, "media_type", "audio/mpeg")
 
     def synthesize(
-        self, text: str, voice: Optional[str] = None, rate: Optional[str] = None
+        self,
+        text: str,
+        voice: Optional[str] = None,
+        rate: Optional[str] = None,
+        *,
+        before_fallback: Optional[Callable[[], None]] = None,
     ) -> bytes:
         try:
             audio = self.primary.synthesize(text, voice=voice, rate=rate)
@@ -87,6 +92,8 @@ class SpeechBackend:
                 raise
         # The senior hears the robotic-but-present voice instead of nothing, and
         # the log explains why the voice changed for one sentence.
+        if before_fallback is not None:
+            before_fallback()
         audio = self.fallback.synthesize(text, voice=voice, rate=rate)
         self.spoken_with = "edge"
         self.media_type = getattr(self.fallback, "media_type", "audio/mpeg")
@@ -141,7 +148,8 @@ class TTSIn(BaseModel):
 @router.post("/tts")
 def synthesize_speech(
     body: TTSIn,
-    user: dict[str, Any] = Depends(current_user),
+    senior_id: int = Depends(require_household_senior_id),
+    ctx=Depends(get_context),
     tts: SpeechBackend = Depends(get_tts),
 ) -> Response:
     text = body.text.strip()
@@ -149,7 +157,17 @@ def synthesize_speech(
         raise validation_error("text must not be blank")
     if len(text) > MAX_TEXT_CHARS:
         raise validation_error(f"text must be at most {MAX_TEXT_CHARS} characters")
-    audio = tts.synthesize(text, voice=body.voice, rate=body.rate)
+
+    def require_cloud_consent() -> None:
+        ctx.consent.require(senior_id, "cloud_processing")
+
+    require_cloud_consent()
+    if isinstance(tts, SpeechBackend):
+        audio = tts.synthesize(
+            text, voice=body.voice, rate=body.rate, before_fallback=require_cloud_consent
+        )
+    else:
+        audio = tts.synthesize(text, voice=body.voice, rate=body.rate)
     # getattr keeps the route working for a bare adapter too (the tests inject
     # an EdgeTTS with a fake synth, which has no backend bookkeeping).
     return Response(
