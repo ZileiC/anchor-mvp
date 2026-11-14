@@ -60,6 +60,9 @@
 
 ### 0.1.3 2026-11-12：从 GitHub 下的 zip 打开就报「本地服务未启动」——修好了
 
+安全更新：以下为历史记录。旧 Windows 下载包应停用，使用通过检查的新 ZIP。
+密钥只在安装后配置，见 [Windows 打包说明](docs/windows-packaging.md)。
+
 **现象**：队友把仓库 zip（Code → Download ZIP）解压后打开，界面顶着一条红条：
 「没有找到后台程序。它应该和本程序放在同一个文件夹里。需要的文件：…\mobile\dist\windows\backend\anchor_backend.exe」。
 
@@ -121,7 +124,7 @@ DeepSeek 于 2026-11-13 开放了 TTS 接口（`POST https://api.deepseek.com/v1
 | `backend/tests/test_tts_deepseek.py`（新，23 个） | WAV 契约、音色映射、HTTP/超时/空包/截断/HTML 错误页、key 不出现在错误里、header 修复、主备切换、环境变量选路 |
 | `docs/ai-live-evidence.md` | 实测：11/26/55 字三句，DeepSeek 1.45–2.97 s（均值 **2.04 s**），edge-tts 6.86–7.18 s（均值 **7.02 s**） |
 
-环境变量（打包版由 `entrypoint.py` 注入 key，不用手动设）：
+环境变量（安装后在运行时配置，详见 [Windows 打包说明](docs/windows-packaging.md)）：
 
 - `ANCHOR_TTS_PROVIDER` = `deepseek`（有 key 时的默认）或 `edge`（强制微软；没有 key 时自动）
 - `ANCHOR_TTS_API_KEY`（可选，和 `ANCHOR_LLM_API_KEY` 分开计费时用）

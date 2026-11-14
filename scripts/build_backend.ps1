@@ -4,12 +4,12 @@
 # Usage (from anywhere):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_backend.ps1
 #
-# The exe serves 127.0.0.1:8077 from app/entrypoint.py, seeds demo data into
+# The Windows exe serves TCP 8077 from app/entrypoint.py, seeds demo data into
 # <exe dir>\data\anchor.db on first start (or %LOCALAPPDATA%\Anchor when the exe
 # dir is read-only) and exits 0 when the port is already taken.
 param([switch]$SkipDeps)
-$ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_common.ps1"
+$ErrorActionPreference = 'Stop'
 
 $PipIndex = if ($env:ANCHOR_PIP_INDEX) { $env:ANCHOR_PIP_INDEX } else { 'https://pypi.tuna.tsinghua.edu.cn/simple' }
 
@@ -22,24 +22,10 @@ if (-not $SkipDeps) {
 
 $distDir = Join-Path $script:BackendDir 'dist'
 $workDir = Join-Path $script:BackendDir 'build'
-$exe = Join-Path $distDir 'anchor_backend.exe'
+$exeName = if ($env:OS -eq 'Windows_NT') { 'anchor_backend.exe' } else { 'anchor_backend' }
+$exe = Join-Path $distDir $exeName
 New-Item -ItemType Directory -Force -Path $distDir, $workDir | Out-Null
 if (Test-Path $exe) { Remove-Item $exe -Force }
-
-# The keys the packaged build runs with (2026-11-12). config\credentials.env is
-# gitignored and never leaves this machine; PyInstaller bakes it INTO the exe so
-# whoever unpacks the zip does not have to fill anything in. Without the file the
-# build still works -- it just replies from the offline rule model and asks for a
-# key, which is the old behaviour.
-$bundleDir = Join-Path $script:BackendDir 'config'
-$bundleFile = Join-Path $bundleDir 'credentials.env'
-$bundleArg = @()
-if (Test-Path $bundleFile) {
-    $bundleArg = @('--add-data', "$bundleFile;config")
-    Write-Host '[build] bundling config\credentials.env INTO the exe (not into the repo)' -ForegroundColor Cyan
-} else {
-    Write-Host '[build] no config\credentials.env: the exe will run offline-only and ask for a key' -ForegroundColor DarkYellow
-}
 
 Write-Host '[build] running PyInstaller (one-file, windowed) ...' -ForegroundColor Cyan
 Push-Location $script:BackendDir
@@ -48,9 +34,8 @@ try {
         --noconfirm --clean `
         --name anchor_backend `
         --onefile --noconsole `
-        --add-data "migrations;migrations" `
-        --add-data "../content/activities.json;content" `
-        @bundleArg `
+        --add-data "migrations/[0-9][0-9][0-9]_*.sql:migrations" `
+        --add-data "../content/activities.json:content" `
         --collect-submodules uvicorn `
         --collect-submodules edge_tts `
         --hidden-import aiohttp `
@@ -65,6 +50,11 @@ try {
 }
 
 if (-not (Test-Path $exe)) { throw "missing build output: $exe" }
+& $script:VenvPython (Join-Path $PSScriptRoot 'windows_artifacts.py') $exe
+if ($LASTEXITCODE -ne 0) {
+    Remove-Item -LiteralPath $exe -Force
+    throw 'Backend executable failed the artifact check.'
+}
 $info = Get-Item $exe
 $sizeMb = [math]::Round($info.Length / 1MB, 1)
 Write-Host ''

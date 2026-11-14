@@ -491,6 +491,12 @@ instead of ever fabricating a transcript. On Windows the packaged backend defaul
 i.e. the local System.Speech recognizer (16 kHz mono WAV, zh-CN preferred, partial transcripts
 possible), with `none` when no recognizer exists.
 
+Windows packaging selects approved runner outputs and checks the PyInstaller backend.
+Credentials arrive at runtime from existing provider settings, the process environment,
+or a local file beside the backend or selected via `ANCHOR_DEMO_CREDENTIALS`.
+The PyInstaller extraction directory is excluded as a credential source. Distributed
+archives omit local credentials, databases and logs. [Windows packaging](docs/windows-packaging.md)
+
 ## 7. Digest content rules (S10 + §8)
 
 Generation (worker `weekly_digest`, due each Monday 09:00 local for the previous 7 days):

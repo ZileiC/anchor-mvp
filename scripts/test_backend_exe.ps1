@@ -9,14 +9,18 @@
 param(
     [string]$ExePath = '',
     [int]$StartupTimeoutSeconds = 90,
-    [switch]$KeepTemp
+    [switch]$KeepTemp,
+    [switch]$SkipNetworkSpeech
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_common.ps1"
+$ErrorActionPreference = 'Stop'
 
 if (-not $ExePath) { $ExePath = Join-Path $script:BackendDir 'dist\anchor_backend.exe' }
 if (-not (Test-Path $ExePath)) { throw "missing exe: $ExePath (run scripts\build_backend.ps1 first)" }
 $ExePath = (Resolve-Path $ExePath).Path
+& $script:VenvPython (Join-Path $PSScriptRoot 'windows_artifacts.py') $ExePath
+if ($LASTEXITCODE -ne 0) { throw 'Backend executable failed the artifact check.' }
 
 function Get-FreePort {
     $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
@@ -45,12 +49,8 @@ function Invoke-Api {
     try {
         $response = $request.GetResponse()
     } catch [System.Net.WebException] {
-        $detail = ''
-        if ($_.Exception.Response) {
-            $errorReader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream(), [System.Text.Encoding]::UTF8)
-            try { $detail = $errorReader.ReadToEnd() } finally { $errorReader.Close() }
-        }
-        throw "HTTP $Method $Url failed: $($_.Exception.Message) $detail"
+        if ($_.Exception.Response) { $_.Exception.Response.Close() }
+        throw "HTTP $Method $Url failed: $($_.Exception.Message)"
     }
     $reader = New-Object System.IO.StreamReader($response.GetResponseStream(), [System.Text.Encoding]::UTF8)
     try { $text = $reader.ReadToEnd() } finally { $reader.Close(); $response.Close() }
@@ -122,6 +122,8 @@ try {
         Remove-Item -Path "Env:$($_.Name)" -ErrorAction SilentlyContinue
     }
     $env:ANCHOR_PORT = "$port"
+    $env:ANCHOR_HOST = '127.0.0.1'
+    $env:ANCHOR_DISCOVERY_PORT = '0'
 
     $started = Get-Date
     $proc = Start-Process -FilePath $exe -WorkingDirectory $tempRoot -PassThru -WindowStyle Hidden
@@ -133,9 +135,7 @@ try {
             break
         } catch {
             if ($proc.HasExited) {
-                $log = Join-Path $tempRoot 'data\backend.log'
-                $tail = if (Test-Path $log) { Get-Content $log -Raw } else { '(no log)' }
-                throw "backend exited before becoming healthy (exit $($proc.ExitCode))`n$tail"
+                throw "backend exited before becoming healthy (exit $($proc.ExitCode))"
             }
             Start-Sleep -Milliseconds 500
         }
@@ -152,6 +152,11 @@ try {
     if (-not $seniorLogin.access_token) { throw 'senior #1 login returned no token' }
     if (-not $caregiverLogin.access_token) { throw 'caregiver #2 login returned no token' }
 
+    $providers = Invoke-Api -Method GET -Url "$base/providers" -Token $caregiverLogin.access_token
+    if ($providers.llm.engine -ne 'offline-rule' -or $providers.asr.mode -ne 'offline' -or
+        $providers.llm.key_hint -or $providers.asr.key_hint) {
+        throw 'Fresh start had unexpected provider settings.'
+    }
     $senior = Invoke-Api -Method GET -Url "$base/me" -Token $seniorLogin.access_token
     $caregiver = Invoke-Api -Method GET -Url "$base/me" -Token $caregiverLogin.access_token
     if ($senior.id -ne 1 -or $senior.role -ne 'senior') { throw "senior #1 is wrong: $($senior | ConvertTo-Json -Compress)" }
@@ -185,22 +190,35 @@ try {
     $caregiverDigests = Invoke-Api -Method GET -Url "$base/digests" -Token $caregiverLogin.access_token
     if ($null -eq $caregiverDigests.items) { throw 'caregiver /api/v1/digests did not return an items array' }
 
-    # Real neural speech from the packaged exe: the app asks this endpoint for every
-    # sentence it says, so a frozen-exe TTS failure must surface here, not on stage.
-    # Only `text` is sent on purpose: the app itself sends no voice/rate, so this is
-    # exactly the demo path (server default voice, slowed for older ears).
-    $ttsStarted = Get-Date
-    $tts = Invoke-ApiBytes -Url "$base/tts" -Token $seniorLogin.access_token -Body @{
-        text = 'Anchor smoke test. One, two, three.'
+    if (-not $SkipNetworkSpeech) {
+        # Real neural speech from the packaged exe: the app asks this endpoint for every
+        # sentence it says, so a frozen-exe TTS failure must surface here, not on stage.
+        # Only `text` is sent on purpose: the app itself sends no voice/rate, so this is
+        # exactly the demo path (server default voice, slowed for older ears).
+        $ttsStarted = Get-Date
+        $tts = Invoke-ApiBytes -Url "$base/tts" -Token $seniorLogin.access_token -Body @{
+            text = 'Anchor smoke test. One, two, three.'
+        }
+        $ttsSeconds = [math]::Round(((Get-Date) - $ttsStarted).TotalSeconds, 2)
+        if ($tts.ContentType -notlike 'audio/mpeg*') { throw "tts content type was '$($tts.ContentType)'" }
+        if ($tts.Length -lt 3000) { throw "tts audio is only $($tts.Length) bytes" }
+        $isMp3 = ($tts.Bytes[0] -eq 0x49 -and $tts.Bytes[1] -eq 0x44 -and $tts.Bytes[2] -eq 0x33) -or
+                 ($tts.Bytes[0] -eq 0xFF -and ($tts.Bytes[1] -band 0xE0) -eq 0xE0)
+        if (-not $isMp3) {
+            $magic = '{0:X2} {1:X2} {2:X2}' -f $tts.Bytes[0], $tts.Bytes[1], $tts.Bytes[2]
+            throw "tts payload is not MPEG audio (first bytes: $magic)"
+        }
     }
-    $ttsSeconds = [math]::Round(((Get-Date) - $ttsStarted).TotalSeconds, 2)
-    if ($tts.ContentType -notlike 'audio/mpeg*') { throw "tts content type was '$($tts.ContentType)'" }
-    if ($tts.Length -lt 3000) { throw "tts audio is only $($tts.Length) bytes" }
-    $isMp3 = ($tts.Bytes[0] -eq 0x49 -and $tts.Bytes[1] -eq 0x44 -and $tts.Bytes[2] -eq 0x33) -or
-             ($tts.Bytes[0] -eq 0xFF -and ($tts.Bytes[1] -band 0xE0) -eq 0xE0)
-    if (-not $isMp3) {
-        $magic = '{0:X2} {1:X2} {2:X2}' -f $tts.Bytes[0], $tts.Bytes[1], $tts.Bytes[2]
-        throw "tts payload is not MPEG audio (first bytes: $magic)"
+
+    $sentinel = 'anchor-synthetic-' + [guid]::NewGuid().ToString('N')
+    $configured = Invoke-Api -Method PUT -Url "$base/providers" -Token $caregiverLogin.access_token -Body @{
+        llm = @{ api_key = $sentinel }
+        asr = @{ api_key = $sentinel }
+    }
+    if ($configured.llm.engine -ne 'http' -or $configured.asr.engine -ne 'http' -or
+        -not $configured.llm.configured -or -not $configured.asr.configured -or
+        ($configured | ConvertTo-Json -Depth 5 -Compress).Contains($sentinel)) {
+        throw 'Runtime provider configuration or masking failed.'
     }
 
     $dbFile = Join-Path $tempRoot 'data\anchor.db'
@@ -236,7 +254,10 @@ try {
     Write-Host "prefs      : greeting window $($preferences.greeting_start)-$($preferences.greeting_end) (demo mode), quiet $($preferences.quiet_start)-$($preferences.quiet_end)"
     Write-Host "digests    : senior 200 items=$(@($digests.items).Count) | caregiver 200 items=$(@($caregiverDigests.items).Count)"
     Write-Host "             (no digest is pre-seeded; the worker generates weekly digests)"
-    Write-Host "tts        : $([math]::Round($tts.Length / 1KB)) KB of $($tts.ContentType) in $ttsSeconds s (real edge-tts synthesis through the frozen exe)"
+    if (-not $SkipNetworkSpeech) {
+        Write-Host "tts        : $([math]::Round($tts.Length / 1KB)) KB of $($tts.ContentType) in $ttsSeconds s (real edge-tts synthesis through the frozen exe)"
+    }
+    Write-Host 'providers  : offline defaults and local runtime configuration verified'
     Write-Host "port clash : second copy exited 0, first backend still healthy"
     Write-Host "db file    : $dbFile"
     Write-Host "log file   : $logFile"
@@ -245,7 +266,7 @@ try {
     $failure = $_
 } finally {
     Stop-SmokeProcess -Process $proc -ExecutablePath $exe
-    Remove-Item -Path 'Env:ANCHOR_PORT' -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Env:ANCHOR_PORT', 'Env:ANCHOR_HOST', 'Env:ANCHOR_DISCOVERY_PORT' -ErrorAction SilentlyContinue
     foreach ($name in $savedEnv.Keys) { Set-Item -Path "Env:$name" -Value $savedEnv[$name] }
     if ($KeepTemp) {
         Write-Host "[smoke] kept temp dir: $tempRoot" -ForegroundColor DarkGray
