@@ -1,0 +1,56 @@
+{
+  "evidence_type": "automated_backend_smoke",
+  "checkout_revision": "d2e388730519166a2a227594ce1190caa533e280",
+  "smoke_script_sha256": "4d9218f8c6c7b2a09a716c180622ecdb674c3d3f5dd9f8300566dbe3e1fae2bd",
+  "executed_at_utc": "2026-11-15T09:00:56+00:00",
+  "host": "Windows",
+  "python": "3.10.11",
+  "fixture_clock_utc": "2026-11-16T01:00:00+00:00",
+  "transport": "loopback HTTP only",
+  "providers": "synthetic ASR, local rule LLM, injected unavailability; TTS not called",
+  "checks": {
+    "startup_health": {
+      "status": "pass",
+      "api_version": "0.1.0"
+    },
+    "role_separation": {
+      "status": "pass",
+      "unauthenticated": 401,
+      "caregiver_write": 403
+    },
+    "conversation_turn": {
+      "status": "pass",
+      "asr": "stub",
+      "reply": "offline rule"
+    },
+    "provider_failure_recovery": {
+      "status": "pass",
+      "asr_failure": 503,
+      "typed_retry": 200,
+      "llm_unavailable": 503,
+      "retry_after_provider_restored": 200
+    },
+    "session_cloud_consent": {
+      "status": "pass",
+      "denied_before_adapter": true
+    },
+    "stop_after_revocation": {
+      "status": "pass",
+      "stop": 200,
+      "late_turn": 409
+    },
+    "digest_review_publish_read": {
+      "status": "pass",
+      "draft_caregiver_read": 403,
+      "in_app_reminders": 1,
+      "period_start": "2026-11-09",
+      "period_end_exclusive": "2026-11-16"
+    },
+    "caregiver_refetch_after_revocation": {
+      "status": "pass",
+      "revoked_topics": 3,
+      "direct_read_after_unlink": 403
+    }
+  },
+  "result": "pass"
+}
