@@ -324,8 +324,9 @@ def test_none_mode_llm_returns_honest_503(client, app, senior, senior_token):
 
 # -- POST /providers/test --------------------------------------------------
 def test_test_endpoint_llm_uses_the_current_config_and_a_canned_transport(
-    client, app, senior_token
+    client, app, senior, senior_token
 ):
+    _grant(app, senior)
     requests_seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -352,8 +353,9 @@ def test_test_endpoint_llm_uses_the_current_config_and_a_canned_transport(
 
 
 def test_test_endpoint_llm_failure_is_reported_without_leaking_the_key(
-    client, app, senior_token
+    client, app, senior, senior_token
 ):
+    _grant(app, senior)
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("no route", request=request)
 

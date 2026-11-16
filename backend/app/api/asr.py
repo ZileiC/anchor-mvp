@@ -23,7 +23,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..errors import provider_unavailable, validation_error
+from ..providers.asr_fake import FakeASR
+from ..providers.asr_windows import WindowsSapiASR
 from ..providers.config import describe_providers, load_provider_settings
+from ..providers.unavailable import UnavailableASR
 from .deps import get_context, require_senior
 
 router = APIRouter(tags=["asr"])
@@ -76,6 +79,12 @@ def _provider_name(ctx, adapter: Any) -> str:
         return type(adapter).__name__
 
 
+def require_asr_consent(ctx, senior_id: int, adapter: Any) -> None:
+    """Allow known local adapters. Require consent for other adapters by default."""
+    if type(adapter) not in (WindowsSapiASR, FakeASR, UnavailableASR):
+        ctx.consent.require(senior_id, "cloud_processing")
+
+
 @router.post("/transcribe")
 def transcribe(
     body: TranscribeIn = TranscribeIn(),
@@ -91,5 +100,6 @@ def transcribe(
             recovery=["type_instead", "configure"],
             provider="asr",
         )
+    require_asr_consent(ctx, int(user["id"]), adapter)
     text = adapter.transcribe(audio, mime)
     return {"text": text, "provider": _provider_name(ctx, adapter)}

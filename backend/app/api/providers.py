@@ -27,7 +27,8 @@ from ..providers.config import (
     resolve_llm,
     update_provider_settings,
 )
-from .deps import get_context, require_setup_access
+from .asr import require_asr_consent
+from .deps import get_context, require_household_senior_id
 
 router = APIRouter(tags=["providers"])
 
@@ -79,7 +80,7 @@ def _error_text(exc: AppError) -> str:
 
 @router.get("/providers")
 def get_providers(
-    user: dict[str, Any] = Depends(require_setup_access),
+    _senior_id: int = Depends(require_household_senior_id),
     ctx=Depends(get_context),
 ) -> dict[str, Any]:
     return describe_providers(ctx.settings, load_provider_settings(ctx.db))
@@ -88,7 +89,7 @@ def get_providers(
 @router.put("/providers")
 def put_providers(
     body: ProvidersIn,
-    user: dict[str, Any] = Depends(require_setup_access),
+    _senior_id: int = Depends(require_household_senior_id),
     ctx=Depends(get_context),
 ) -> dict[str, Any]:
     changes: dict[str, Any] = {}
@@ -105,7 +106,7 @@ def put_providers(
     return describe_providers(ctx.settings, stored)
 
 
-def _probe_llm(ctx) -> dict[str, Any]:
+def _probe_llm(ctx, senior_id: int) -> dict[str, Any]:
     stored = load_provider_settings(ctx.db)
     config = resolve_llm(ctx.settings, stored)
     if config.mode != "http" or not config.available:
@@ -123,12 +124,14 @@ def _probe_llm(ctx) -> dict[str, Any]:
     )
     started = time.perf_counter()
     try:
+        ctx.consent.require(senior_id, "cloud_processing")
         reply = adapter.reply(
             PROBE_SYSTEM, [{"role": "user", "content": PROBE_USER}], max_words=20
         )
     except AppError as exc:
         return {
             "ok": False,
+            **({"reason": "consent_required"} if exc.code == "consent_required" else {}),
             "latency_ms": int((time.perf_counter() - started) * 1000),
             "reply_sample": None,
             "error": _scrub(_error_text(exc), config.api_key),
@@ -148,7 +151,7 @@ def _probe_llm(ctx) -> dict[str, Any]:
     }
 
 
-def _probe_asr(ctx, body: ProviderTestIn) -> dict[str, Any]:
+def _probe_asr(ctx, senior_id: int, body: ProviderTestIn) -> dict[str, Any]:
     if not body.audio_b64:
         # No sample was supplied: say so instead of pretending the provider works.
         return {"ok": False, "reason": "no_sample"}
@@ -167,10 +170,12 @@ def _probe_asr(ctx, body: ProviderTestIn) -> dict[str, Any]:
         return {"ok": False, "reason": "not_configured", "error": "ASR 还没有配置"}
     started = time.perf_counter()
     try:
+        require_asr_consent(ctx, senior_id, adapter)
         text = adapter.transcribe(audio, body.audio_mime or "audio/wav")
     except AppError as exc:
         return {
             "ok": False,
+            **({"reason": "consent_required"} if exc.code == "consent_required" else {}),
             "latency_ms": int((time.perf_counter() - started) * 1000),
             "error": _scrub(_error_text(exc), None),
         }
@@ -191,7 +196,7 @@ def _probe_asr(ctx, body: ProviderTestIn) -> dict[str, Any]:
 @router.post("/providers/test")
 def test_providers(
     body: ProviderTestIn = ProviderTestIn(),
-    user: dict[str, Any] = Depends(require_setup_access),
+    senior_id: int = Depends(require_household_senior_id),
     ctx=Depends(get_context),
 ) -> dict[str, Any]:
-    return {"llm": _probe_llm(ctx), "asr": _probe_asr(ctx, body)}
+    return {"llm": _probe_llm(ctx, senior_id), "asr": _probe_asr(ctx, senior_id, body)}
