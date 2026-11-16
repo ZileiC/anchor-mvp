@@ -398,6 +398,10 @@ class FakeApi extends ApiClient {
       clearAssistantName:
           changes.containsKey('assistant_name') &&
           changes['assistant_name'] == null,
+      voiceGender: changes['voice_gender'] as String?,
+      clearVoiceGender:
+          changes.containsKey('voice_gender') &&
+          changes['voice_gender'] == null,
     );
     return prefs;
   }

@@ -18,6 +18,7 @@ class Preferences {
     this.snoozedUntil,
     this.designatedDeviceId,
     this.assistantName,
+    this.voiceGender,
   });
 
   final String greetingStart;
@@ -38,6 +39,9 @@ class Preferences {
   /// What the older adult calls the companion (2026-11-16). Null means the
   /// product default; the caption label falls back in the UI.
   final String? assistantName;
+
+  /// emale / male, or null for the default voice (2026-11-16).
+  final String? voiceGender;
 
   static const Preferences defaults = Preferences(
     greetingStart: '09:00',
@@ -76,9 +80,13 @@ class Preferences {
     snoozedUntil: asStringOrNull(json['snoozed_until']),
     designatedDeviceId: asStringOrNull(json['designated_device_id']),
     assistantName: asStringOrNull(json['assistant_name']),
+    voiceGender: asStringOrNull(json['voice_gender']),
   );
 
   bool get isSlowPace => voicePace == 'slow';
+
+  /// True when the senior picked the male voice; null/unknown means female.
+  bool get isMaleVoice => voiceGender == 'male';
 
   Preferences copyWith({
     String? greetingStart,
@@ -99,6 +107,8 @@ class Preferences {
     bool clearDesignatedDevice = false,
     String? assistantName,
     bool clearAssistantName = false,
+    String? voiceGender,
+    bool clearVoiceGender = false,
   }) => Preferences(
     greetingStart: greetingStart ?? this.greetingStart,
     greetingEnd: greetingEnd ?? this.greetingEnd,
@@ -119,6 +129,7 @@ class Preferences {
     assistantName: clearAssistantName
         ? null
         : (assistantName ?? this.assistantName),
+    voiceGender: clearVoiceGender ? null : (voiceGender ?? this.voiceGender),
   );
 
   /// Minutes since local midnight, for window arithmetic (`HH:MM`).

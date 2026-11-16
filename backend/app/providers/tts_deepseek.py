@@ -105,15 +105,23 @@ def resolve_voice(voice: Optional[str]) -> str:
     """Map the names our settings already use onto the two real voices.
 
     The appliance's stored default is `zh-CN-XiaoxiaoNeural` (edge's female
-    Chinese voice) and the older ``slow`` path passes the same string, so an
-    exact-match-only mapping would silently send an invalid voice id.
+    Chinese voice) and My choices now passes the gender tokens ``female``/``male``,
+    so an exact-match-only mapping would silently send an invalid voice id.
+
+    The order matters: ``"female"`` *contains* ``"male"``, and checking the male
+    hints first made the female token select the man's voice. Exact tokens win,
+    then the female word, then the male hints (2026-11-16).
     """
     chosen = (voice or "").strip().lower()
     if not chosen:
         return DEFAULT_VOICE
     if chosen in VOICES:
         return chosen
-    if "tide" in chosen or "yunxi" in chosen or "yunyang" in chosen or "male" in chosen:
+    if chosen == "female" or "female" in chosen:
+        return VOICE_FEMALE
+    if chosen == "male" or "male" in chosen:
+        return VOICE_MALE
+    if "tide" in chosen or "yunxi" in chosen or "yunyang" in chosen:
         return VOICE_MALE
     # Anything else (xiaoxiao, xiaoyi, the old default, an unknown id) is the
     # product's female voice: better a wrong-but-valid voice than a 400.

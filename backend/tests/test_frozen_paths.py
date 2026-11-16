@@ -123,13 +123,14 @@ def test_migrate_reads_migrations_from_meipass(fake_meipass, tmp_path):
     finally:
         database.close()
     # Migration 003 is the in-conversation activity offers (DECISIONS 2026-11-10),
-    # 004 the flower rewards, 005 the companion's name (2026-11-16).
+    # 004 the flower rewards, 005 the companion's name, 006 the voice choice.
     assert applied == [
         "001_init.sql",
         "002_provider_settings.sql",
         "003_inline_activities.sql",
         "004_activity_rewards.sql",
         "005_assistant_name.sql",
+        "006_voice_gender.sql",
     ]
 
 

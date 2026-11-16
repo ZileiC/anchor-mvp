@@ -720,6 +720,14 @@ class AppState extends ChangeNotifier {
   /// they typed, in whatever language they typed it.
   String get assistantName => (preferences?.assistantName ?? '').trim();
 
+  /// The voice the senior picked, for the settings row: male or emale.
+  bool get prefersMaleVoice => preferences?.isMaleVoice ?? false;
+
+  /// Chooses which of the two provider voices speaks (2026-11-16).
+  Future<bool> setVoiceGender(bool male) => updatePreferences(<String, Object?>{
+    'voice_gender': male ? 'male' : 'female',
+  });
+
   /// Sets (or clears, with a blank value) the companion's name.
   Future<bool> setAssistantName(String name) async {
     final cleaned = name.trim();

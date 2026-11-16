@@ -30,10 +30,15 @@ PATCHABLE_FIELDS = (
     "designated_device_id",
     "digest_retention_days",
     "assistant_name",
+    "voice_gender",
 )
 
 LANGUAGES = ("zh-CN", "en")
 VOICE_PACES = ("slow", "normal")
+#: Which of the two provider voices speaks. Stored as a gender rather than the
+#: provider's id, so the choice survives a provider or fallback change
+#: (2026-11-16).
+VOICE_GENDERS = ("female", "male")
 
 
 def _defaults(senior_id: int, now: str) -> dict[str, Any]:
@@ -54,6 +59,7 @@ def _defaults(senior_id: int, now: str) -> dict[str, Any]:
         "designated_device_id": None,
         "digest_retention_days": 365,
         "assistant_name": None,
+        "voice_gender": None,
         "updated_at": now,
     }
 
@@ -172,6 +178,16 @@ def validate_patch(updates: dict[str, Any]) -> dict[str, Any]:
                 raise validation_error(
                     "designated_device_id must be a string up to 128 characters or null"
                 )
+        elif field == "voice_gender":
+            if value is None or value == "":
+                # Back to the product default (female) without a second field.
+                values[field] = None
+            elif value not in VOICE_GENDERS:
+                raise validation_error(
+                    f"voice_gender must be one of {list(VOICE_GENDERS)}"
+                )
+            else:
+                values[field] = value
         elif field == "assistant_name":
             values[field] = _as_assistant_name(value)
         elif field == "digest_retention_days":
@@ -196,11 +212,11 @@ class PreferencesService:
             "INSERT OR IGNORE INTO preferences(senior_id, greeting_start, greeting_end, quiet_start, "
             "quiet_end, daily_cap, paused, snoozed_until, voice_pace, short_replies, language, "
             "interests, observation_topics, designated_device_id, digest_retention_days, "
-            "assistant_name, updated_at) "
+            "assistant_name, voice_gender, updated_at) "
             "VALUES (:senior_id, :greeting_start, :greeting_end, :quiet_start, :quiet_end, "
             ":daily_cap, :paused, :snoozed_until, :voice_pace, :short_replies, :language, "
             ":interests, :observation_topics, :designated_device_id, :digest_retention_days, "
-            ":assistant_name, :updated_at)",
+            ":assistant_name, :voice_gender, :updated_at)",
             values,
         )
         return self.db.query_one("SELECT * FROM preferences WHERE senior_id = ?", (senior_id,))

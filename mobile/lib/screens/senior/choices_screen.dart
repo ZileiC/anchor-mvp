@@ -49,6 +49,38 @@ class _ChoicesScreenState extends State<ChoicesScreen> {
     });
   }
 
+  /// One of the two voice buttons. Selected is filled jade; the other is an
+  /// outline, so the current choice is readable without colour alone.
+  Widget _voiceButton({
+    required Key key,
+    required String label,
+    required bool selected,
+    required VoidCallback onPressed,
+  }) {
+    final style = TextStyle(
+      fontSize: 26,
+      fontWeight: FontWeight.w700,
+      color: selected ? AnchorTheme.paper : AnchorTheme.jadeDeep,
+    );
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Text(label, textAlign: TextAlign.center, style: style),
+    );
+    return selected
+        ? FilledButton(
+            key: key,
+            onPressed: _working ? null : onPressed,
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 64)),
+            child: child,
+          )
+        : OutlinedButton(
+            key: key,
+            onPressed: _working ? null : onPressed,
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 64)),
+            child: child,
+          );
+  }
+
   /// Asks for the name, then saves it. One field, one button pair.
   ///
   /// Blank is a legitimate answer ("use the default"), so the dialog offers
@@ -196,6 +228,36 @@ class _ChoicesScreenState extends State<ChoicesScreen> {
                       }),
                     ),
             ),
+            // Which of the two provider voices speaks (2026-11-16). Two big
+            // buttons rather than a switch: a switch needs a label like "female
+            // voice on/off", which is a riddle; a button pair is the answer.
+            Text(
+              l.t('用哪个声音说话', 'Which voice speaks'),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _voiceButton(
+                    key: const Key('voice-female'),
+                    label: l.t('女声', 'Female voice'),
+                    selected: !state.prefersMaleVoice,
+                    onPressed: () => _run(() => state.setVoiceGender(false)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _voiceButton(
+                    key: const Key('voice-male'),
+                    label: l.t('男声', 'Male voice'),
+                    selected: state.prefersMaleVoice,
+                    onPressed: () => _run(() => state.setVoiceGender(true)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             // What the older adult calls the companion (2026-11-16). A row rather
             // than a bare text field: the name is a decision, and tapping it opens
             // one big field where they can type whatever they like.

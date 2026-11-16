@@ -47,6 +47,8 @@ def preferences_public(row: dict[str, Any]) -> dict[str, Any]:
         "digest_retention_days": row["digest_retention_days"],
         # The name the older adult gave the companion, or NULL for the default.
         "assistant_name": row["assistant_name"] if "assistant_name" in row else None,
+        # "female"/"male", or NULL for the product default (female). 2026-11-16.
+        "voice_gender": row["voice_gender"] if "voice_gender" in row else None,
         "updated_at": row["updated_at"],
     }
 

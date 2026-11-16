@@ -24,8 +24,30 @@ from typing import Callable, List, Optional
 from ..errors import AppError, provider_unavailable
 
 DEFAULT_VOICE = "zh-CN-XiaoxiaoNeural"
+#: The male Chinese neural voice, so "男声" in My choices maps here when
+#: DeepSeek is unavailable and this fallback speaks instead (2026-11-16).
+VOICE_MALE = "zh-CN-YunxiNeural"
 # Slower than the neural voice's natural pace: easier to follow for older ears.
 DEFAULT_RATE = "-12%"
+
+
+def resolve_voice(voice: Optional[str]) -> Optional[str]:
+    """Map a gender token onto this provider's real voice name.
+
+    The senior's choice is stored as ``female``/``male`` so it survives a provider
+    change; DeepSeek's own words (``stella``/``tide``) are accepted too because
+    that is what ``ANCHOR_TTS_VOICE`` has always taken. Anything else — a full
+    edge voice name someone configured — is passed through untouched.
+    """
+    chosen = (voice or "").strip()
+    if not chosen:
+        return None
+    lowered = chosen.lower()
+    if lowered in ("male", "tide") or "yunxi" in lowered or "yunyang" in lowered:
+        return VOICE_MALE
+    if lowered in ("female", "stella"):
+        return DEFAULT_VOICE
+    return chosen
 MAX_TEXT_CHARS = 2000
 TIMEOUT_SECONDS = 15.0
 
@@ -119,7 +141,7 @@ class EdgeTTS:
         rate: Optional[str] = None,
     ) -> bytes:
         """Return MP3 bytes for ``text``; blank overrides fall back to defaults."""
-        chosen_voice = (voice or "").strip() or self.voice
+        chosen_voice = resolve_voice(voice) or self.voice
         chosen_rate = (rate or "").strip() or self.rate
         try:
             audio = self._synth(text, chosen_voice, chosen_rate)

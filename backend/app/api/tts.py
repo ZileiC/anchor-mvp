@@ -32,13 +32,37 @@ from pydantic import BaseModel
 from ..errors import AppError, provider_unavailable, validation_error
 from ..providers.tts import MAX_TEXT_CHARS, EdgeTTS
 from ..providers.tts_deepseek import DEFAULT_BASE_URL, DeepSeekTTS
-from .deps import current_user
+from .deps import current_user, get_context
 
 router = APIRouter(tags=["tts"])
 
 #: Header used to tell the client which voice actually spoke. Useful in logs, in
 #: the demo, and in tests; it never contains the key.
 PROVIDER_HEADER = "X-Anchor-Voice"
+
+#: The senior picks a gender in My choices; each adapter maps it to its own voice
+#: name (DeepSeek stella/tide, edge Xiaoxiao/Yunxi). 2026-11-16.
+DEFAULT_GENDER = "female"
+
+
+def voice_for_gender(gender: Optional[str]) -> str:
+    """The token handed to the adapters: ``female`` or ``male``.
+
+    Unknown or missing values fall back to the product default rather than
+    failing: a sentence that cannot be spoken is worse than a voice the senior
+    did not pick.
+    """
+    chosen = (gender or "").strip().lower()
+    return "male" if chosen == "male" else DEFAULT_GENDER
+
+
+def _gender_of(preferences: Any) -> str:
+    """The stored choice, tolerating a row from before migration 006."""
+    try:
+        value = preferences.get("voice_gender")
+    except AttributeError:
+        return DEFAULT_GENDER
+    return voice_for_gender(value)
 
 _SYNTHESIZER: Optional["SpeechBackend"] = None
 
@@ -142,6 +166,7 @@ class TTSIn(BaseModel):
 def synthesize_speech(
     body: TTSIn,
     user: dict[str, Any] = Depends(current_user),
+    ctx=Depends(get_context),
     tts: SpeechBackend = Depends(get_tts),
 ) -> Response:
     text = body.text.strip()
@@ -149,7 +174,13 @@ def synthesize_speech(
         raise validation_error("text must not be blank")
     if len(text) > MAX_TEXT_CHARS:
         raise validation_error(f"text must be at most {MAX_TEXT_CHARS} characters")
-    audio = tts.synthesize(text, voice=body.voice, rate=body.rate)
+    # The senior's own choice decides which of the two voices speaks; an explicit
+    # voice in the request still wins, because that is what tests and any client
+    # with a fixed voice already rely on.
+    voice = (body.voice or "").strip() or _gender_of(
+        ctx.preferences.get_or_create(int(user["id"]))
+    )
+    audio = tts.synthesize(text, voice=voice, rate=body.rate)
     # getattr keeps the route working for a bare adapter too (the tests inject
     # an EdgeTTS with a fake synth, which has no backend bookkeeping).
     return Response(
