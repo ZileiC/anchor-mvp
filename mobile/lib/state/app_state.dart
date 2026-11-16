@@ -713,6 +713,21 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// What the older adult calls the companion (2026-11-16).
+  ///
+  /// Blank means "the product default": the backend stores NULL, and the caption
+  /// label falls back to L.anchor. The name is not localised — it is whatever
+  /// they typed, in whatever language they typed it.
+  String get assistantName => (preferences?.assistantName ?? '').trim();
+
+  /// Sets (or clears, with a blank value) the companion's name.
+  Future<bool> setAssistantName(String name) async {
+    final cleaned = name.trim();
+    return updatePreferences(<String, Object?>{
+      'assistant_name': cleaned.isEmpty ? null : cleaned,
+    });
+  }
+
   Future<bool> setConsent({
     required String capability,
     String topic = '',

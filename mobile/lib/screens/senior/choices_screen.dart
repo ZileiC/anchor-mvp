@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../models/models.dart';
@@ -47,6 +47,29 @@ class _ChoicesScreenState extends State<ChoicesScreen> {
       _working = false;
       _message = ok ? null : state.lastErrorText ?? state.l.unknownError;
     });
+  }
+
+  /// Asks for the name, then saves it. One field, one button pair.
+  ///
+  /// Blank is a legitimate answer ("use the default"), so the dialog offers
+  /// 「用回 Anchor」 as a second action instead of leaving the senior to guess.
+  Future<void> _editAssistantName() async {
+    final l = state.l;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => _NameDialog(
+        initial: state.assistantName,
+        title: l.t('它叫什么名字', 'What is it called'),
+        hint: l.t(
+          '写您想叫的名字，比如「小安」。留空就用 Anchor。',
+          'Type the name you want, for example “Xiao An”. Leave it blank for Anchor.',
+        ),
+        cancelLabel: l.cancel,
+        saveLabel: l.save,
+      ),
+    );
+    if (result == null || !mounted) return;
+    await _run(() => state.setAssistantName(result));
   }
 
   Future<bool> _confirm(String title, String body) async =>
@@ -172,6 +195,28 @@ class _ChoicesScreenState extends State<ChoicesScreen> {
                         'voice_pace': value ? 'slow' : 'normal',
                       }),
                     ),
+            ),
+            // What the older adult calls the companion (2026-11-16). A row rather
+            // than a bare text field: the name is a decision, and tapping it opens
+            // one big field where they can type whatever they like.
+            ListTile(
+              key: const Key('choice-assistant-name'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                l.t('它叫什么名字', 'What is it called'),
+                style: const TextStyle(fontSize: 24),
+              ),
+              subtitle: Text(
+                state.assistantName.isEmpty ? l.anchor : state.assistantName,
+                key: const Key('choice-assistant-name-value'),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AnchorTheme.ink,
+                ),
+              ),
+              trailing: const Icon(Icons.edit_outlined, size: 26),
+              onTap: _working ? null : _editAssistantName,
             ),
           ]),
           _section(l.t('与家人分享', 'Sharing with family'), [
@@ -373,6 +418,87 @@ class _ChoicesScreenState extends State<ChoicesScreen> {
           ]),
         ],
       ),
+    );
+  }
+}
+
+/// One large text field, exactly as long as the dialog lives.
+///
+/// Same shape as the phone's address dialog: the controller belongs to the dialog
+/// state, so a rebuild can never touch a disposed controller (a real crash on
+/// 2026-11-12).
+class _NameDialog extends StatefulWidget {
+  const _NameDialog({
+    required this.initial,
+    required this.title,
+    required this.hint,
+    required this.cancelLabel,
+    required this.saveLabel,
+  });
+
+  final String initial;
+  final String title;
+  final String hint;
+  final String cancelLabel;
+  final String saveLabel;
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            widget.hint,
+            style: const TextStyle(
+              fontSize: 22,
+              color: AnchorTheme.inkSoft,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('assistant-name-field'),
+            controller: _controller,
+            autofocus: true,
+            maxLength: 12,
+            style: const TextStyle(fontSize: 26, color: AnchorTheme.ink),
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(counterText: ''),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const Key('assistant-name-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.cancelLabel),
+        ),
+        FilledButton(
+          key: const Key('assistant-name-save'),
+          onPressed: _submit,
+          child: Text(widget.saveLabel),
+        ),
+      ],
     );
   }
 }

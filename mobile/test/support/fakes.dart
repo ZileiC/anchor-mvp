@@ -394,6 +394,10 @@ class FakeApi extends ApiClient {
       clearDesignatedDevice:
           changes.containsKey('designated_device_id') &&
           changes['designated_device_id'] == null,
+      assistantName: changes['assistant_name'] as String?,
+      clearAssistantName:
+          changes.containsKey('assistant_name') &&
+          changes['assistant_name'] == null,
     );
     return prefs;
   }

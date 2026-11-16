@@ -45,6 +45,8 @@ def preferences_public(row: dict[str, Any]) -> dict[str, Any]:
         "observation_topics": json.loads(row["observation_topics"] or "[]"),
         "designated_device_id": row["designated_device_id"],
         "digest_retention_days": row["digest_retention_days"],
+        # The name the older adult gave the companion, or NULL for the default.
+        "assistant_name": row["assistant_name"] if "assistant_name" in row else None,
         "updated_at": row["updated_at"],
     }
 

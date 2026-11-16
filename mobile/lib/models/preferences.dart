@@ -17,6 +17,7 @@ class Preferences {
     required this.digestRetentionDays,
     this.snoozedUntil,
     this.designatedDeviceId,
+    this.assistantName,
   });
 
   final String greetingStart;
@@ -33,6 +34,10 @@ class Preferences {
   final int digestRetentionDays;
   final String? snoozedUntil;
   final String? designatedDeviceId;
+
+  /// What the older adult calls the companion (2026-11-16). Null means the
+  /// product default; the caption label falls back in the UI.
+  final String? assistantName;
 
   static const Preferences defaults = Preferences(
     greetingStart: '09:00',
@@ -70,6 +75,7 @@ class Preferences {
     digestRetentionDays: asInt(json['digest_retention_days'], 365),
     snoozedUntil: asStringOrNull(json['snoozed_until']),
     designatedDeviceId: asStringOrNull(json['designated_device_id']),
+    assistantName: asStringOrNull(json['assistant_name']),
   );
 
   bool get isSlowPace => voicePace == 'slow';
@@ -91,6 +97,8 @@ class Preferences {
     bool clearSnooze = false,
     String? designatedDeviceId,
     bool clearDesignatedDevice = false,
+    String? assistantName,
+    bool clearAssistantName = false,
   }) => Preferences(
     greetingStart: greetingStart ?? this.greetingStart,
     greetingEnd: greetingEnd ?? this.greetingEnd,
@@ -108,6 +116,9 @@ class Preferences {
     designatedDeviceId: clearDesignatedDevice
         ? null
         : (designatedDeviceId ?? this.designatedDeviceId),
+    assistantName: clearAssistantName
+        ? null
+        : (assistantName ?? this.assistantName),
   );
 
   /// Minutes since local midnight, for window arithmetic (`HH:MM`).

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/conversation.dart';
@@ -451,6 +451,11 @@ class _TalkScreenState extends State<TalkScreen> {
             key: ValueKey<String>('caption-$index'),
             caption: state.captions[index],
             l: l,
+            // The name the older adult gave the companion (2026-11-16); blank
+            // falls back to the product word.
+            assistantName: state.assistantName.isEmpty
+                ? l.anchor
+                : state.assistantName,
           ),
       ],
     );
@@ -685,10 +690,18 @@ class _TalkScreenState extends State<TalkScreen> {
 /// the sentence itself. It fades in and rises 8 px once, 180 ms, unless the
 /// system asks for reduced motion.
 class _CaptionEntry extends StatelessWidget {
-  const _CaptionEntry({super.key, required this.caption, required this.l});
+  const _CaptionEntry({
+    super.key,
+    required this.caption,
+    required this.l,
+    required this.assistantName,
+  });
 
   final Caption caption;
   final L l;
+
+  /// Already resolved by the caller: the senior's chosen name, or Anchor.
+  final String assistantName;
 
   @override
   Widget build(BuildContext context) {
@@ -697,7 +710,7 @@ class _CaptionEntry extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          caption.isSenior ? l.you : l.anchor,
+          caption.isSenior ? l.you : assistantName,
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,

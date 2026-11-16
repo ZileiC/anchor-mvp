@@ -29,6 +29,7 @@ PATCHABLE_FIELDS = (
     "observation_topics",
     "designated_device_id",
     "digest_retention_days",
+    "assistant_name",
 )
 
 LANGUAGES = ("zh-CN", "en")
@@ -52,6 +53,7 @@ def _defaults(senior_id: int, now: str) -> dict[str, Any]:
         "observation_topics": json.dumps(list(SHARE_TOPICS)),
         "designated_device_id": None,
         "digest_retention_days": 365,
+        "assistant_name": None,
         "updated_at": now,
     }
 
@@ -78,6 +80,28 @@ def _as_daily_cap(value: Any) -> int:
     if not isinstance(value, int) or value not in (0, 1):
         raise validation_error("daily_cap must be 0 or 1")
     return value
+
+
+def _as_assistant_name(value: Any) -> Optional[str]:
+    """The name the older adult gives the companion (2026-11-16).
+
+    Blank means "use the product default", stored as NULL. Whitespace is
+    collapsed so a name typed with a stray space does not shift the caption
+    label, and 12 characters is the ceiling: the label sits above a 26 px
+    caption, and a longer name wraps into the conversation itself.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise validation_error("assistant_name must be a string or null")
+    cleaned = " ".join(value.split())
+    if not cleaned:
+        return None
+    if len(cleaned) > 12:
+        raise validation_error("assistant_name must be at most 12 characters")
+    if any(ord(ch) < 32 for ch in cleaned):
+        raise validation_error("assistant_name must not contain control characters")
+    return cleaned
 
 
 def _as_string_list(value: Any, field: str, allowed: Optional[tuple[str, ...]] = None) -> str:
@@ -148,6 +172,8 @@ def validate_patch(updates: dict[str, Any]) -> dict[str, Any]:
                 raise validation_error(
                     "designated_device_id must be a string up to 128 characters or null"
                 )
+        elif field == "assistant_name":
+            values[field] = _as_assistant_name(value)
         elif field == "digest_retention_days":
             if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 3650:
                 raise validation_error("digest_retention_days must be an integer 1..3650")
@@ -169,11 +195,12 @@ class PreferencesService:
         self.db.execute(
             "INSERT OR IGNORE INTO preferences(senior_id, greeting_start, greeting_end, quiet_start, "
             "quiet_end, daily_cap, paused, snoozed_until, voice_pace, short_replies, language, "
-            "interests, observation_topics, designated_device_id, digest_retention_days, updated_at) "
+            "interests, observation_topics, designated_device_id, digest_retention_days, "
+            "assistant_name, updated_at) "
             "VALUES (:senior_id, :greeting_start, :greeting_end, :quiet_start, :quiet_end, "
             ":daily_cap, :paused, :snoozed_until, :voice_pace, :short_replies, :language, "
             ":interests, :observation_topics, :designated_device_id, :digest_retention_days, "
-            ":updated_at)",
+            ":assistant_name, :updated_at)",
             values,
         )
         return self.db.query_one("SELECT * FROM preferences WHERE senior_id = ?", (senior_id,))
