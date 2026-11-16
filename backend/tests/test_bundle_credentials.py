@@ -1,15 +1,9 @@
-"""The packaged backend's bundled credentials (2026-11-12).
-
-A build that only replies from the offline rule model is not "ready to use": the
-person who unpacks the zip has no key of their own. ``entrypoint._apply_bundle_credentials``
-fills the model names/endpoints and, when ``config/credentials.env`` exists next to
-the exe, the keys — using ``os.environ.setdefault`` so nothing a developer or a
-family member has already set is ever overridden.
-"""
+"""The packaged backend's per-install credentials and model defaults."""
 
 from __future__ import annotations
 
 import os
+import sys
 
 import pytest
 
@@ -57,7 +51,7 @@ def test_dotenv_reader_ignores_comments_and_blanks(tmp_path):
     assert _read_dotenv(tmp_path / "missing.env") == {}
 
 
-def test_models_are_filled_in_so_a_fresh_install_is_not_offline(tmp_path):
+def test_fresh_install_has_model_defaults_without_cloud_credentials(tmp_path):
     _apply_bundle_credentials()
     assert os.environ["ANCHOR_LLM_MODEL"] == "deepseek-flash"
     assert os.environ["ANCHOR_LLM_BASE_URL"] == "https://api.deepseek.com"
@@ -67,7 +61,7 @@ def test_models_are_filled_in_so_a_fresh_install_is_not_offline(tmp_path):
     assert "ANCHOR_ASR_PROVIDER" not in os.environ
 
 
-def test_the_bundled_key_is_used_when_nothing_was_set(tmp_path):
+def test_install_local_keys_are_used_when_nothing_was_set(tmp_path):
     _write_credentials(tmp_path, "ANCHOR_LLM_API_KEY=sk-bundled\nANCHOR_ASR_API_KEY=sk-asr\n")
     _apply_bundle_credentials()
     assert os.environ["ANCHOR_LLM_PROVIDER"] == "http"
@@ -91,3 +85,31 @@ def test_the_credentials_path_can_be_pointed_elsewhere(tmp_path, monkeypatch):
     monkeypatch.setenv("ANCHOR_DEMO_CREDENTIALS", str(other))
     _apply_bundle_credentials()
     assert os.environ["ANCHOR_ASR_PROVIDER"] == "http"
+
+
+@pytest.mark.parametrize("explicit_path", [False, True])
+def test_credentials_in_pyinstaller_extraction_directory_are_ignored(
+    tmp_path, monkeypatch, explicit_path
+):
+    extracted = tmp_path / "extraction"
+    extracted.mkdir()
+    _write_credentials(extracted, "ANCHOR_LLM_API_KEY=synthetic-embedded-key\n")
+    monkeypatch.setattr(sys, "_MEIPASS", str(extracted), raising=False)
+    if explicit_path:
+        monkeypatch.setenv(
+            "ANCHOR_DEMO_CREDENTIALS", str(extracted / "config" / "credentials.env")
+        )
+
+    _apply_bundle_credentials()
+
+    assert "ANCHOR_LLM_API_KEY" not in os.environ
+    assert "ANCHOR_LLM_PROVIDER" not in os.environ
+
+
+def test_local_configuration_is_used_outside_the_extraction_directory(tmp_path, monkeypatch):
+    extracted = tmp_path / "extraction"
+    extracted.mkdir()
+    monkeypatch.setattr(sys, "_MEIPASS", str(extracted), raising=False)
+    _write_credentials(tmp_path, "ANCHOR_LLM_API_KEY=synthetic-local-key\n")
+    _apply_bundle_credentials()
+    assert os.environ["ANCHOR_LLM_PROVIDER"] == "http"

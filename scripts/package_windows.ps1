@@ -1,12 +1,13 @@
-param(
+﻿param(
     [switch]$SkipBuild,
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*\z')]
     [string]$Version = "0.2.0"
 )
 # Assembles the self-contained Windows demo package:
 #   anchor_app.exe (+ Flutter data)  +  backend\anchor_backend.exe  +  README-DEMO.txt
 # and zips it to mobile\dist\AnchorDemo-$Version.zip.
-$ErrorActionPreference = 'Continue'
 . "$PSScriptRoot\_common.ps1"
+$ErrorActionPreference = 'Stop'
 
 $appDir = Join-Path $script:MobileDir 'dist\windows'
 $backendExe = Join-Path $script:BackendDir 'dist\anchor_backend.exe'
@@ -27,30 +28,6 @@ if (-not (Test-Path (Join-Path $appDir 'anchor_app.exe'))) {
 if (-not (Test-Path $backendExe)) {
     throw "missing backend build: $backendExe (run scripts\build_backend.ps1)"
 }
-
-$stageRoot = Join-Path $env:TEMP "anchor-package-$Version"
-if (Test-Path $stageRoot) { Remove-Item -Recurse -Force $stageRoot }
-$stage = Join-Path $stageRoot 'AnchorDemo'
-New-Item -ItemType Directory -Force -Path $stage | Out-Null
-
-# Resolve 8.3 short TEMP paths (e.g. JHARAY~1) to their long form: Get-ChildItem
-# returns long paths, so substring math on the short $stage string is wrong and
-# produced zip entries like "\anchor_app.exe" / "o/anchor_app.exe".
-$stageFull = (Get-Item $stage).FullName
-$appDirFull = (Get-Item $appDir).FullName
-
-Write-Host '[package] staging app files ...' -ForegroundColor Cyan
-Get-ChildItem $appDir -Recurse -File | Where-Object { $_.Extension -ne '.pdb' } | ForEach-Object {
-    # Entry names must be RELATIVE and use forward slashes; a leading backslash
-    # makes Windows Explorer and several unzip tools hide/garble the archive.
-    $rel = $_.FullName.Substring($appDirFull.Length).TrimStart('\', '/').Replace('\', '/')
-    $dest = Join-Path $stage $rel
-    New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
-    Copy-Item $_.FullName $dest -Force
-}
-
-New-Item -ItemType Directory -Force -Path (Join-Path $stage 'backend') | Out-Null
-Copy-Item $backendExe (Join-Path $stage 'backend\anchor_backend.exe') -Force
 
 $readme = @'
 Anchor MVP — Windows 自包含演示版
@@ -74,10 +51,10 @@ Anchor MVP — Windows 自包含演示版
 接入真模型（否则回复是离线模板）
   在手机 App 的「AI 接入」里填 DeepSeek API Key（预设已是 base URL + deepseek-flash）
   和语音识别 key（预设已是 SiliconFlow base URL + Qwen3-ASR），保存后测试。
-  Key 只保存在这台电脑的 backend\data\anchor.db，接口返回时打码。
+  此安装包不包含密钥。在手机端保存的密钥保存在电脑本地数据库，接口只返回掩码提示。
 
 声音
-  * 默认走后端在线神经语音（微软 Edge 神经音色，中文自然），需要联网。
+  * 后端在线神经语音需要联网；未配置 DeepSeek 语音密钥时使用 Edge 语音。
   * 断网或合成失败时自动退回 Windows 系统语音（SAPI），能出声但很机器人。
   * 说完到出声之间会有几秒合成等待。
 
@@ -92,37 +69,17 @@ Anchor MVP — Windows 自包含演示版
   * 后端监听 0.0.0.0:8077（手机端才能连上）；若端口被占用，App 会当作已有后端。
   * 详细限制见仓库 docs/limitations.md。
 '@
-Set-Content -Path (Join-Path $stage 'README-DEMO.txt') -Value $readme -Encoding utf8
 
+# Use a private temporary file for the generated README. The artifact checker
+# writes the ZIP only after validating its member list and nested backend.
+$readmePath = [System.IO.Path]::GetTempFileName()
 $zip = Join-Path $script:MobileDir "dist\AnchorDemo-$Version.zip"
-if (Test-Path $zip) { Remove-Item -Force $zip }
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archive = [System.IO.Compression.ZipFile]::Open($zip, 'Create')
-$count = 0
-Get-ChildItem $stage -Recurse -File | ForEach-Object {
-    $rel = $_.FullName.Substring($stageFull.Length).TrimStart('\', '/').Replace('\', '/')
-    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-        $archive, $_.FullName, $rel, [System.IO.Compression.CompressionLevel]::Optimal
-    ) | Out-Null
-    $count++
+try {
+    Set-Content -LiteralPath $readmePath -Value $readme -Encoding utf8
+    & $script:VenvPython (Join-Path $PSScriptRoot 'windows_artifacts.py') $backendExe `
+        --zip $zip --runner $appDir --readme $readmePath
+    if ($LASTEXITCODE -ne 0) { throw 'Windows package failed the artifact check.' }
+    Write-Host "[package] verified local ZIP -> $zip" -ForegroundColor Green
+} finally {
+    Remove-Item -LiteralPath $readmePath -Force
 }
-$archive.Dispose()
-
-$size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
-Write-Host "[package] $count files -> $zip ($size MB)" -ForegroundColor Green
-Write-Host '[package] README-DEMO.txt included; app auto-starts backend.' -ForegroundColor Green
-
-# 2026-11-12: also refresh the copy that ships INSIDE the repository. A plain
-# "Code -> Download ZIP" has to contain something double-clickable, so
-# `release\windows` is tracked; it must never drift behind a new build.
-$shipped = Join-Path (Split-Path $PSScriptRoot) 'release\windows'
-New-Item -ItemType Directory -Force -Path $shipped | Out-Null
-robocopy $stage $shipped /E /XF *.pdb /NFL /NDL /NJH /NJS /NP | Out-Null
-foreach ($entry in @('anchor_app.exe', 'backend\anchor_backend.exe', 'README-DEMO.txt')) {
-    if (-not (Test-Path (Join-Path $shipped $entry))) {
-        throw "release\windows is incomplete after packaging: missing $entry"
-    }
-}
-Write-Host '[package] release\windows refreshed (the runnable folder committed to the repo)' -ForegroundColor Green
-
-Remove-Item -Recurse -Force $stageRoot -ErrorAction SilentlyContinue

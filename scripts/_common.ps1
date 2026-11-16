@@ -5,10 +5,12 @@ $ErrorActionPreference = 'Continue'  # dev scripts call native tools that write 
 $script:RepoRoot = Split-Path $PSScriptRoot -Parent
 $script:BackendDir = Join-Path $RepoRoot 'backend'
 $script:MobileDir = Join-Path $RepoRoot 'mobile'
-$script:VenvPython = Join-Path $RepoRoot '.venv\Scripts\python.exe'
+$venvPythonPath = if ($env:OS -eq 'Windows_NT') { '.venv\Scripts\python.exe' } else { '.venv/bin/python' }
+$script:VenvPython = Join-Path $RepoRoot $venvPythonPath
 $script:PipIndex = if ($env:ANCHOR_PIP_INDEX) { $env:ANCHOR_PIP_INDEX } else { 'https://pypi.tuna.tsinghua.edu.cn/simple' }
-$script:ToolsDir = Join-Path $env:LOCALAPPDATA 'anchor-tools'
-$script:BuildRoot = Join-Path $env:LOCALAPPDATA 'anchor-build'
+$localAppData = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [System.IO.Path]::GetTempPath() }
+$script:ToolsDir = Join-Path $localAppData 'anchor-tools'
+$script:BuildRoot = Join-Path $localAppData 'anchor-build'
 
 function Get-Flutter {
     $cmd = Get-Command flutter -ErrorAction SilentlyContinue

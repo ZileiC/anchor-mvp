@@ -7,7 +7,7 @@ The Windows demo ships no Python: this module is the whole server process.
   fallback when the exe directory is not writable (``app/paths.py``);
 * an empty database is seeded with the demo world on first start, so the demo
   needs no separate ``seed_demo.py`` step;
-* the server binds ``127.0.0.1:8077`` (``ANCHOR_PORT`` overrides) and exits with
+* the packaged server binds ``0.0.0.0:8077`` and exits with
   code 0 when the port is already in use — that means the desktop app already
   started a backend, and the second copy must disappear quietly;
 * under ``--noconsole`` there is no stdout/stderr, so both are redirected to
@@ -30,25 +30,8 @@ from app.paths import DATA_DIR_NAME, app_base_dir, is_frozen, resolve_db_path
 
 LOG_FILE_NAME = "backend.log"
 
-# The bundle the family does not have to fill in, 2026-11-12.
-#
-# Shipping a build that only replies from the offline rule model is not "ready to
-# use": the person who unpacks the zip has no DeepSeek key and no speech-recognition
-# key, so the senior's first sentence would come back as a template and the
-# microphone would answer "not configured".
-#
-# These are applied with os.environ.setdefault, i.e. ONLY when the environment does
-# not already say something, and a key saved in the app's own settings still wins
-# (see app/providers/config.py: stored row -> environment -> offline default). So a
-# family that enters their own keys is unaffected, and a developer's shell override
-# still works.
-#
-# The key lives per install, in config\credentials.env next to the executable:
-#   ANCHOR_DEMO_CREDENTIALS=<path to a .env file with ANCHOR_LLM_API_KEY=...>
-# The real keys are NEVER in the repository or in this source file (the file is
-# gitignored and lines beginning with # are ignored). Keys are per-install anyway:
-# DeepSeek and SiliconFlow keys are not shareable, and the hosted build's keys
-# cannot be silently put in a public zip.
+# Runtime credentials can come from the process environment or a local file
+# beside the installed backend. Provider settings saved by the app still win.
 BUNDLE_ENV_FILE = "ANCHOR_DEMO_CREDENTIALS"
 BUNDLE_DEFAULT_MODELS = (
     ("ANCHOR_LLM_BASE_URL", "https://api.deepseek.com"),
@@ -63,7 +46,7 @@ def _read_dotenv(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeError):
         return values
     for raw in text.splitlines():
         line = raw.strip()
@@ -78,25 +61,25 @@ def _read_dotenv(path: Path) -> dict[str, str]:
 
 
 def _apply_bundle_credentials() -> None:
-    """Make the frozen build usable out of the box, without overriding anyone."""
-    for name, value in BUNDLE_DEFAULT_MODELS:
-        os.environ.setdefault(name, value)
-
+    """Load local configuration and default model settings at startup."""
+    extracted = getattr(sys, "_MEIPASS", None)
+    bundle = Path(extracted).resolve() if extracted else None
     candidates: list[Path] = []
     explicit = os.environ.get(BUNDLE_ENV_FILE)
     if explicit:
         candidates.append(Path(explicit).expanduser())
     candidates.append(app_base_dir() / "config" / "credentials.env")
-    # Inside the one-file exe the bundled file is extracted to _MEIPASS/config.
-    meipass = getattr(sys, "_MEIPASS", None)
-    if meipass:
-        candidates.append(Path(meipass) / "config" / "credentials.env")
     for candidate in candidates:
+        if bundle is not None and candidate.resolve().is_relative_to(bundle):
+            continue
         if not candidate.is_file():
             continue
         for name, value in _read_dotenv(candidate).items():
             os.environ.setdefault(name, value)
         break
+
+    for name, value in BUNDLE_DEFAULT_MODELS:
+        os.environ.setdefault(name, value)
 
     # A key with no explicit provider mode would leave the app on the offline rule
     # model (that is app/providers/config.py's documented default); say "http" only
@@ -164,10 +147,9 @@ def _is_port_in_use_error(exc: BaseException) -> bool:
 # -- server ---------------------------------------------------------------
 def main() -> int:
     db_path = resolve_db_path()
-    # Model names/endpoints and (when the bundle ships them) the keys, before any
-    # Settings.from_env() reads the environment.
+    # Read per-install settings before Settings.from_env() builds the adapters.
     _apply_bundle_credentials()
-    # When no key was bundled, fall back to the real offline Windows SAPI
+    # Without a configured key, try the real offline Windows SAPI
     # recognizer if this machine has one, and stay honest otherwise.
     os.environ.setdefault("ANCHOR_ASR_PROVIDER", "auto")
     # app/main.py builds a module-level ``app`` when imported (uvicorn app.main:app

@@ -23,13 +23,13 @@ mobile/android/local.properties
 .env
 .env.local
 
-# The prebuilt Windows folder that ships in the repo (see README: 下载即用).
-# Only its runtime data is ignored - the database it creates on first launch
-# holds the API keys and must never be committed.
+# Local files in older extracted or previously tracked Windows bundles.
+release/windows/backend/anchor_backend.exe
+release/windows/backend/config/
 release/windows/backend/data/
-release/windows/data/backend.log
+release/windows/config/
 
-# The keys baked into the shipped backend exe (scripts\build_backend.ps1).
-# They must never reach git: the exe gets them, the repository does not.
+# Per-install configuration only. Keep it out of source and release artifacts.
 backend/config/
+credentials.env
 *.env.private

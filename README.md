@@ -36,23 +36,16 @@ flutter build apk --debug --dart-define=ANCHOR_API_BASE=http://<computer-ip>:807
 
 The packaged backend listens on `0.0.0.0:8077` so the phone can reach it. Windows Firewall needs one inbound rule for TCP 8077; the first connection usually triggers the prompt, and `HANDOVER.md` has the PowerShell one-liner for when it does not.
 
-## Just want to run it? (no Python, no Flutter)
+## Windows installation
 
-Download this repository as a zip (**Code → Download ZIP**), unzip it, then open
+Use a replacement ZIP verified by the project owner, or build a clean ZIP from
+source using the steps below. The app starts its packaged backend automatically
+and creates a local demo database on first launch. An installation from the
+verified ZIP requires neither Python nor Flutter.
 
-```
-anchor-mvp-main\release\windows\anchor_app.exe
-```
-
-That folder is a complete Windows build: the app, its Flutter runtime, and the frozen
-backend (`release\windows\backend\anchor_backend.exe`) that the app starts by itself.
-First launch creates the demo database next to it. Nothing else needs installing.
-
-> **Why this folder is in git:** the build outputs are normally ignored (a binary in a
-> source tree is a smell), but without it a plain "Download ZIP" contains no executable
-> at all, and the app that people then compiled by hand opened with only *本地服务未启动*
-> because the backend binary was never built. The folder is the working download; the
-> build scripts below are still how it gets made.
+**Retire earlier Windows downloads.** Prior builds could contain recoverable
+provider credentials. The GitHub source ZIP is a source download. See the
+[Windows packaging and credential recovery instructions](docs/windows-packaging.md).
 
 ## Run it from source on Windows
 
@@ -68,14 +61,15 @@ powershell -File scripts/run_app.ps1                                        # te
 missing — a missing backend is a hard error instead of a window that only complains.
 
 The demo household is seeded on first run: user 1 is the senior, user 2 is the caregiver.
-To rebuild the self-contained package (and the shipped `release\windows` folder) by hand:
+To build a self-contained ZIP locally:
 
 ```powershell
-powershell -File scripts/build_backend.ps1
-powershell -File scripts/package_windows.ps1 -Version 0.9.4
+powershell -File scripts/package_windows.ps1 -Version local-demo
 ```
 
 That produces `mobile\dist\AnchorDemo-<version>.zip` with the app and the frozen backend inside.
+For a checkout with a cached backend from before the fix, use
+`powershell -File scripts/build_backend.ps1` before running from source.
 
 ## Configure models and speech
 
@@ -87,7 +81,11 @@ Speech to text uses an OpenAI-compatible `/audio/transcriptions` endpoint. We us
 
 Voice output goes through Microsoft's Edge neural voices via `edge-tts`. It is a public endpoint with no contract behind it. When it fails, the app falls back to the Windows system voice, logs that it did, and marks the attempt as degraded instead of pretending the good voice worked.
 
-Keys live in `backend/data/anchor.db` on the computer, masked in API responses, never logged.
+Enter your own provider keys through AI setup on the phone after installation.
+Keys saved in the app live in the computer's local SQLite database, with masked
+hints in API responses. Operators can also supply keys via the environment or an
+external file at startup. A fresh install uses offline chat and attempts Windows
+System.Speech recognition where available until ASR is configured.
 
 ## Tests
 
