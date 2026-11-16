@@ -93,8 +93,9 @@ class _ChoicesScreenState extends State<ChoicesScreen> {
         initial: state.assistantName,
         title: l.t('它叫什么名字', 'What is it called'),
         hint: l.t(
-          '写您想叫的名字，比如「小安」。留空就用 Anchor。',
-          'Type the name you want, for example “Xiao An”. Leave it blank for Anchor.',
+          '写您想叫的名字，比如「小安」。留空就用 Everhere。',
+          'Type the name you want, for example “Xiao An”. Leave it blank for '
+              'Everhere.',
         ),
         cancelLabel: l.cancel,
         saveLabel: l.save,

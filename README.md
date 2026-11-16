@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/anchor-logo.png" alt="Anchor logo" width="150">
+  <img src="docs/assets/anchor-logo.png" alt="Everhere logo" width="150">
 </p>
 
-# Anchor
+# Everhere
 
 A companion for an older adult who lives alone.
 

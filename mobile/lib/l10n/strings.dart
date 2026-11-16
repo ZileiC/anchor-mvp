@@ -17,7 +17,7 @@ class L {
   String t(String chinese, String english) => isEnglish ? english : chinese;
 
   // -- global ---------------------------------------------------------------
-  String get appName => 'Anchor';
+  String get appName => 'Everhere';
   String get tagline => t('安心陪伴', 'A calm companion');
   String get stop => t('停止', 'Stop');
   String get notNow => t('现在不要', 'Not now');
@@ -58,9 +58,9 @@ class L {
   // family member needs a place to fix it when the computer's IP changes.
   String get backendAddressTitle => t('电脑的地址', 'The computer’s address');
   String get backendAddressHint => t(
-    '在电脑上打开「安心陪伴」，屏幕上会显示一个地址，像 http://192.168.1.20:8077。'
+    '在电脑上打开「Everhere」，屏幕上会显示一个地址，像 http://192.168.1.20:8077。'
         '手机和电脑要连同一个 Wi-Fi。',
-    'Open Anchor on the computer: it shows an address like '
+    'Open Everhere on the computer: it shows an address like '
         'http://192.168.1.20:8077. The phone and the computer must be on the same '
         'Wi-Fi.',
   );
@@ -130,7 +130,7 @@ class L {
   String get talkStarting => t('正在打开麦克风…', 'Opening the microphone…');
   String get talkEmpty => t('说一句话开始吧。', 'Say something to begin.');
   String get you => t('你', 'You');
-  String get anchor => t('Anchor', 'Anchor');
+  String get anchor => t('Everhere', 'Everhere');
   String get micOn => t('麦克风已打开', 'Microphone is on');
   String get micOff => t('麦克风已关闭', 'Microphone is off');
   String get listening => t('我在听', 'Listening');

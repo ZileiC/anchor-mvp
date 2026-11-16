@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.anchor" "\0"
-            VALUE "FileDescription", "anchor_app" "\0"
+            VALUE "CompanyName", "Everhere" "\0"
+            VALUE "FileDescription", "Everhere" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "anchor_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.anchor. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Everhere. All rights reserved." "\0"
             VALUE "OriginalFilename", "anchor_app.exe" "\0"
-            VALUE "ProductName", "anchor_app" "\0"
+            VALUE "ProductName", "Everhere" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

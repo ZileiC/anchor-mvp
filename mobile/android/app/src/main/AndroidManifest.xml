@@ -14,7 +14,7 @@
          this off and use HTTPS, or replace it with a network_security_config
          limited to that one host. -->
     <application
-        android:label="anchor_app"
+        android:label="Everhere"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

@@ -44,7 +44,7 @@ class AnchorApp extends StatelessWidget {
     return AnchorScope(
       state: state,
       child: MaterialApp(
-        title: 'Anchor',
+        title: 'Everhere',
         debugShowCheckedModeBanner: false,
         theme: AnchorTheme.build(),
         navigatorObservers: <NavigatorObserver>[anchorRouteObserver],

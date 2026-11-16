@@ -151,6 +151,9 @@ void main() {
     await tester.pump();
     expect(find.text(L.zh.backendUnavailableTitle), findsOneWidget);
 
+    // The backend card makes the page taller than a 390x844 phone, so the login
+    // page scrolls; scroll the plate into view before tapping it (2026-11-16).
+    await tester.ensureVisible(find.byKey(const Key('login-senior')));
     await tester.tap(find.byKey(const Key('login-senior')));
     await settle(tester);
     expect(find.byType(SeniorHomeScreen), findsOneWidget);

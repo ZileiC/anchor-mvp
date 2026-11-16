@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   _wordmark(l),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 28),
                   Text(
                     l.loginTitle,
                     textAlign: TextAlign.center,
@@ -209,8 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: <Widget>[
                           Text(
                             l.t(
-                              '没找到电脑。确认电脑上的 Anchor 已经打开、手机和电脑在同一个 Wi-Fi（或手机热点）。',
-                              'No computer found. Check that Anchor is open on the '
+                              '没找到电脑。确认电脑上的 Everhere 已经打开、手机和电脑在同一个 Wi-Fi（或手机热点）。',
+                              'No computer found. Check that Everhere is open on the '
                                   'computer and both are on the same Wi-Fi (or the '
                                   'phone hotspot).',
                             ),
@@ -283,8 +283,11 @@ class _LoginScreenState extends State<LoginScreen> {
       children: <Widget>[
         Image.asset(
           'assets/images/anchor-logo.png',
-          width: 104,
-          height: 104,
+          // 88 not 104: with the longer wordmark the header pushed the two
+          // identity plates below the fold on a 390x844 phone when the backend
+          // card was also showing (2026-11-16).
+          width: 88,
+          height: 88,
           filterQuality: FilterQuality.high,
           semanticLabel: l.appName,
         ),
@@ -298,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Text(
               l.appName,
               style: const TextStyle(
-                fontSize: 30,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: AnchorTheme.jade,
                 letterSpacing: 0.5,
