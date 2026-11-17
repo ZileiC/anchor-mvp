@@ -41,7 +41,7 @@ The packaged backend listens on `0.0.0.0:8077` so the phone can reach it. Window
 Download this repository as a zip (**Code → Download ZIP**), unzip it, then open
 
 ```
-anchor-mvp-main\release\windows\anchor_app.exe
+everhere-main\release\windows\anchor_app.exe
 ```
 
 That folder is a complete Windows build: the app, its Flutter runtime, and the frozen

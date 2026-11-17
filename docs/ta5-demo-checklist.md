@@ -11,8 +11,8 @@ Run with the actual presentation laptop, Android phone, projector and network be
 
 ## 1. Prepare the build and demo data
 
-- [ ] Confirm the reviewed Windows package and exact Android APK. The tracked Windows bundle on the audited revision is affected by credential exposure. Use a verified replacement after the release owner rotates affected keys and reviews the packaging fix. [Packaging PR](https://github.com/ZileiC/anchor-mvp/pull/1)
-- [ ] Agree what will be demonstrated with the selected build. Verify the direct speech consent fix before relying on cloud opt-out in a live cloud-voice demonstration. Use a trusted LAN and synthetic data for all demo paths. [Speech-consent PR](https://github.com/ZileiC/anchor-mvp/pull/2)
+- [ ] Confirm the reviewed Windows package and exact Android APK. The tracked Windows bundle on the audited revision is affected by credential exposure. Use a verified replacement after the release owner rotates affected keys and reviews the packaging fix. [Packaging PR](https://github.com/ZileiC/everhere/pull/1)
+- [ ] Agree what will be demonstrated with the selected build. Verify the direct speech consent fix before relying on cloud opt-out in a live cloud-voice demonstration. Use a trusted LAN and synthetic data for all demo paths. [Speech-consent PR](https://github.com/ZileiC/everhere/pull/2)
 - [ ] Run the [reproducible backend smoke](evidence/ta5-automated-checks.md#reproduce-the-portable-smoke-test) and attach its JSON. The build operator prepares a fresh synthetic database for the actual demo date. On Monday 16 November, the expected previous completed week is 9–15 November local time. Use a separate database for rehearsal so the live report stays unpublished.
 - [ ] Store keys only in local runtime settings. Keep keys, local databases, tokens, raw recordings and diagnostic logs out of the slides and shared files. Keep the app closed while switching database files.
 

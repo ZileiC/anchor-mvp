@@ -5,10 +5,10 @@
 ## 一次完整流程
 
 ```bash
-# 1. 在 GitHub 上点 Fork（ZileiC/anchor-mvp -> 你自己的账号）
+# 1. 在 GitHub 上点 Fork（ZileiC/everhere -> 你自己的账号）
 # 2. clone 你自己的 fork
-git clone https://github.com/<你的用户名>/anchor-mvp.git
-cd anchor-mvp
+git clone https://github.com/<你的用户名>/everhere.git
+cd everhere
 
 # 3. 每次改动开一个分支（名字说清楚改什么）
 git checkout -b feat/digest-wording
@@ -17,7 +17,7 @@ git add -A
 git commit -m "digest: 调整中文措辞并补测试"
 git push origin feat/digest-wording
 
-# 4. 在 GitHub 上对你的分支发起 Pull Request 指向 ZileiC/anchor-mvp:main
+# 4. 在 GitHub 上对你的分支发起 Pull Request 指向 ZileiC/everhere:main
 ```
 
 ## 提交前必须自测
