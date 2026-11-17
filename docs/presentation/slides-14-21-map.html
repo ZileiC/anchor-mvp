@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slides 14–21 · presenter runbook · Everhere</title>
+<style>
+  :root {
+    /* Paper and ink: the same material the product itself uses. The accent is
+       the app's jade; ochre is reserved for the two things that can bite. */
+    --paper: #F2EFE4;
+    --raised: #FAF8F0;
+    --ink: #17211B;
+    --ink-soft: #3D4A41;
+    --ink-muted: #6B7268;
+    --hairline: rgba(23, 33, 27, 0.10);
+    --hairline-strong: rgba(23, 33, 27, 0.22);
+    --jade: #1F5C46;
+    --jade-deep: #16432F;
+    --ochre: #9C6B1F;
+
+    --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", "Noto Serif SC", serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+
+    --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+    --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    font-optical-sizing: auto;
+    text-wrap: pretty;
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: 264px minmax(0, 1fr);
+    gap: var(--s8);
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: var(--s7) var(--s6) var(--s8);
+  }
+
+  /* ---------------------------------------------------------- left rail */
+  .rail {
+    position: sticky;
+    top: var(--s6);
+    align-self: start;
+    padding-right: var(--s5);
+    border-right: 1px solid var(--hairline);
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+
+  .rail .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 var(--s2);
+  }
+
+  .rail h1 {
+    font-family: var(--serif);
+    font-size: 26px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+    margin: 0 0 var(--s3);
+  }
+
+  .rail p.lede {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 var(--s5);
+  }
+
+  .budget {
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    background: var(--raised);
+    padding: var(--s3) var(--s4);
+    margin-bottom: var(--s5);
+  }
+
+  .budget .figure {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 22px;
+    color: var(--jade-deep);
+    letter-spacing: -0.01em;
+  }
+
+  .budget .figure span { font-size: 12px; color: var(--ink-muted); letter-spacing: 0; }
+  .budget .note { font-size: 12px; color: var(--ink-muted); margin: var(--s1) 0 0; }
+
+  .rail nav ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .rail nav a {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: baseline;
+    gap: var(--s2);
+    padding: 6px 0;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 13px;
+  }
+
+  .rail nav a:hover { color: var(--jade-deep); }
+  .rail nav a:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; border-radius: 4px; }
+
+  .rail nav .n {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--jade);
+  }
+
+  .rail nav .t { font-size: 13px; }
+  .rail nav .c {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* -------------------------------------------------------------- main */
+  .rail-footer {
+    margin-top: var(--s5);
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-family: var(--mono);
+    line-height: 1.6;
+  }
+
+  header.doc { margin-bottom: var(--s8); }
+
+  header.doc .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 var(--s3);
+  }
+
+  header.doc h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 4vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 var(--s4);
+    max-width: 22ch;
+  }
+
+  header.doc .standfirst {
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 var(--s5);
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 4px 8px;
+    background: var(--raised);
+  }
+
+  /* --------------------------------------------------- chain (diagram) */
+  section.chain { margin-bottom: var(--s8); }
+
+  .section-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s3);
+    border-bottom: 1px solid var(--hairline-strong);
+    padding-bottom: var(--s2);
+    margin-bottom: var(--s5);
+  }
+
+  .section-label h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .section-label .hint {
+    font-size: 13px;
+    color: var(--ink-muted);
+    margin-left: auto;
+  }
+
+  .diagram {
+    background: var(--raised);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: var(--s5) var(--s5) var(--s4);
+    overflow-x: auto;
+  }
+
+  .diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+
+  .figure-caption {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin: var(--s3) 0 0;
+  }
+
+  .four-beats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s4);
+    margin-top: var(--s5);
+  }
+
+  .beat {
+    border-top: 2px solid var(--jade);
+    padding-top: var(--s3);
+  }
+
+  .beat .k {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--jade-deep);
+    font-variant-numeric: tabular-nums;
+    margin: 0 0 var(--s1);
+  }
+
+  .beat h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 var(--s1);
+  }
+
+  .beat p {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ---------------------------------------------------------- timing */
+  .timing { margin-top: var(--s5); }
+
+  .timing-bar {
+    display: flex;
+    gap: 2px;
+    margin-top: var(--s3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .timing-bar .seg {
+    background: rgba(31, 92, 70, 0.14);
+    padding: 6px 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--jade-deep);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .timing-bar .seg:nth-child(3),
+  .timing-bar .seg:nth-child(4) { background: rgba(31, 92, 70, 0.22); }
+
+  /* ------------------------------------------------------ slide blocks */
+  article.slide {
+    padding-top: var(--s6);
+    margin-bottom: var(--s7);
+    border-top: 1px solid var(--hairline);
+  }
+
+  article.slide:first-of-type { border-top: none; }
+
+  .slide-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s3);
+    margin-bottom: var(--s3);
+  }
+
+  .slide-no {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--raised);
+    background: var(--jade);
+    border-radius: 4px;
+    padding: 2px 7px;
+    letter-spacing: 0.02em;
+  }
+
+  .slide-time {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .slide-words {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-left: auto;
+  }
+
+  article.slide h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(24px, 2.6vw, 30px);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    margin: 0 0 var(--s3);
+  }
+
+  .core {
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--jade-deep);
+    border-left: 2px solid var(--jade);
+    padding-left: var(--s4);
+    margin: 0 0 var(--s5);
+    max-width: 58ch;
+  }
+
+  .core b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 400;
+    margin-bottom: var(--s1);
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: var(--s6);
+    margin-bottom: var(--s5);
+  }
+
+  .panel h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 400;
+    margin: 0 0 var(--s3);
+    padding-bottom: var(--s2);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  ul.beats { list-style: none; margin: 0; padding: 0; }
+
+  ul.beats li {
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    gap: var(--s3);
+    padding: var(--s2) 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+
+  ul.beats li:last-child { border-bottom: none; }
+
+  ul.beats .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-muted);
+    padding-top: 3px;
+  }
+
+  ul.beats b { color: var(--ink); font-weight: 600; }
+
+  .logic {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 0 0 var(--s4);
+  }
+
+  .logic .from, .logic .to {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--jade-deep);
+  }
+
+  .bridge {
+    font-size: 14px;
+    color: var(--ink-soft);
+    border-top: 1px dashed var(--hairline-strong);
+    padding-top: var(--s3);
+    margin: 0;
+  }
+
+  .bridge b {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 400;
+    display: block;
+    margin-bottom: var(--s1);
+  }
+
+  .script {
+    background: var(--raised);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: var(--s5);
+  }
+
+  .script .label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s3);
+    margin-bottom: var(--s3);
+  }
+
+  .script .label span:first-child {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--jade-deep);
+  }
+
+  .script .label span:last-child {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .script p {
+    font-family: var(--serif);
+    font-size: 17.5px;
+    line-height: 1.8;
+    margin: 0 0 var(--s4);
+    max-width: 68ch;
+  }
+
+  .script p:last-child { margin-bottom: 0; }
+  .script strong { font-weight: 600; color: var(--ink); }
+  .script em { font-style: normal; color: var(--jade-deep); }
+
+  .aside {
+    font-size: 13px;
+    color: var(--ink-soft);
+    border-left: 2px solid var(--ochre);
+    padding-left: var(--s3);
+    margin: var(--s4) 0 0;
+  }
+
+  /* --------------------------------------------------------- caveats */
+  section.gaps { margin-top: var(--s8); }
+
+  .gap-box {
+    border: 1px solid var(--hairline-strong);
+    border-left: 3px solid var(--ochre);
+    border-radius: 10px;
+    background: var(--raised);
+    padding: var(--s5);
+  }
+
+  .gap-box h3 {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 var(--s3);
+  }
+
+  .gap-box ol { margin: 0; padding-left: 20px; }
+  .gap-box li { font-size: 14px; color: var(--ink-soft); margin-bottom: var(--s2); }
+  .gap-box li b { color: var(--ink); }
+
+  /* ------------------------------------------------------------- q&a */
+  section.qa { margin-top: var(--s7); }
+
+  details {
+    border-bottom: 1px solid var(--hairline);
+    padding: var(--s3) 0;
+  }
+
+  details summary {
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    list-style: none;
+    display: flex;
+    gap: var(--s2);
+    align-items: baseline;
+  }
+
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before {
+    content: "+";
+    font-family: var(--mono);
+    color: var(--jade);
+    font-size: 13px;
+    width: 14px;
+    flex: 0 0 14px;
+  }
+
+  details[open] summary::before { content: "–"; }
+  details p {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: var(--s2) 0 0 22px;
+    max-width: 74ch;
+  }
+
+  footer.doc {
+    margin-top: var(--s8);
+    padding-top: var(--s4);
+    border-top: 1px solid var(--hairline);
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--ink-muted);
+    line-height: 1.7;
+  }
+
+  /* one entrance, and only where motion is welcome */
+  @media (prefers-reduced-motion: no-preference) {
+    .page > * { animation: enter 260ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+    .page > *:nth-child(2) { animation-delay: 40ms; }
+    .page > *:nth-child(3) { animation-delay: 80ms; }
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .page { grid-template-columns: minmax(0, 1fr); gap: var(--s6); padding: var(--s5) var(--s4) var(--s7); }
+    .rail {
+      position: static;
+      max-height: none;
+      overflow: visible;
+      border-right: none;
+      border-bottom: 1px solid var(--hairline);
+      padding: 0 0 var(--s5);
+    }
+    .rail nav ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--s4); }
+    .four-beats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .columns { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+  }
+
+  @media print {
+    :root { --paper: #fff; --raised: #fff; }
+    .page { display: block; padding: 0; max-width: none; }
+    .rail { position: static; border: none; max-height: none; overflow: visible; }
+    .rail nav, .chips, .timing-bar { display: none; }
+    .diagram { break-inside: avoid; overflow: visible; }
+    article.slide, .script, .gap-box, details { break-inside: avoid; }
+    footer.doc { margin-top: var(--s5); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <aside class="rail">
+    <p class="kicker">Presenter runbook</p>
+    <h1>Slides 14–21</h1>
+    <p class="lede">Feasibility Assessment. Eight slides, four claims, one honest boundary. Spoken script plus the logic that connects them.</p>
+
+    <div class="budget">
+      <div class="figure">5:50 <span>/ 6:00 on the clock</span></div>
+      <p class="note">17:00 → 23:00, measured from the deck's own notes.</p>
+    </div>
+
+    <nav aria-label="Slides">
+      <ol>
+        <li><a href="#s14"><span class="n">14</span><span class="t">Windows host</span><span class="c">45s</span></a></li>
+        <li><a href="#s15"><span class="n">15</span><span class="t">Speech path</span><span class="c">60s</span></a></li>
+        <li><a href="#s16"><span class="n">16</span><span class="t">What we checked</span><span class="c">60s</span></a></li>
+        <li><a href="#s17"><span class="n">17</span><span class="t">Both platforms</span><span class="c">45s</span></a></li>
+        <li><a href="#s18"><span class="n">18</span><span class="t">Pilot needs</span><span class="c">40s</span></a></li>
+        <li><a href="#s19"><span class="n">19</span><span class="t">Cost</span><span class="c">35s</span></a></li>
+        <li><a href="#s20"><span class="n">20</span><span class="t">Limits</span><span class="c">30s</span></a></li>
+        <li><a href="#s21"><span class="n">21</span><span class="t">Demo gate</span><span class="c">35s</span></a></li>
+      </ol>
+    </nav>
+
+    <p class="rail-footer">
+      If you fall behind: cut 19 to one sentence.<br>
+      Never cut 20.
+    </p>
+  </aside>
+
+  <main>
+    <header class="doc">
+      <p class="kicker">Everhere · Team One · TA5</p>
+      <h2>How it runs, what we proved, what it costs, where it stops.</h2>
+      <p class="standfirst">
+        Six minutes of feasibility. Two slides on architecture, two on evidence, two on
+        operations and cost, two on limits and readiness. Every sentence below is either
+        how the thing works or something we measured — nothing on these slides is a plan.
+      </p>
+      <div class="chips">
+        <span class="chip">8 slides</span>
+        <span class="chip">≈ 740 spoken words</span>
+        <span class="chip">130–140 wpm</span>
+        <span class="chip">hand over to slide 22 · live demo</span>
+      </div>
+    </header>
+
+    <section class="chain" aria-labelledby="chain-title">
+      <div class="section-label">
+        <h3 id="chain-title">The chain</h3>
+        <span class="hint">four pairs · each pair is claim → evidence</span>
+      </div>
+
+      <div class="diagram">
+        <svg viewBox="0 0 960 250" role="img" aria-label="Eight slides grouped into four phases: how it runs, what we proved, what it needs, where it stops">
+          <defs>
+            <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" fill="#1F5C46"></path>
+            </marker>
+          </defs>
+
+          <!-- phase brackets -->
+          <g stroke="#1F5C46" stroke-width="1.5" fill="none" opacity="0.85">
+            <path d="M48 52 v-14 h168 v14"></path>
+            <path d="M264 52 v-14 h168 v14"></path>
+            <path d="M480 52 v-14 h168 v14"></path>
+            <path d="M696 52 v-14 h168 v14"></path>
+          </g>
+
+          <g font-family="ui-monospace, Consolas, monospace" font-size="11" fill="#3D4A41" text-anchor="middle">
+            <text x="132" y="30">HOW IT RUNS</text>
+            <text x="348" y="30">WHAT WE PROVED</text>
+            <text x="564" y="30">WHAT IT NEEDS</text>
+            <text x="780" y="30">WHERE IT STOPS</text>
+          </g>
+
+          <!-- claim → evidence within each pair -->
+          <g stroke="#17211B" stroke-width="1" opacity="0.28">
+            <path d="M84 96 h96"></path>
+            <path d="M300 96 h96"></path>
+            <path d="M516 96 h96"></path>
+            <path d="M732 96 h96"></path>
+          </g>
+
+          <!-- the spine between pairs -->
+          <g stroke="#1F5C46" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+            <path d="M204 84 h72"></path>
+            <path d="M420 84 h72"></path>
+            <path d="M636 84 h72"></path>
+          </g>
+
+          <!-- nodes -->
+          <g font-family="ui-monospace, Consolas, monospace" text-anchor="middle">
+            <!-- pair 1 -->
+            <g>
+              <circle cx="60" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="60" y="88" font-size="12" fill="#FAF8F0">14</text>
+              <text x="60" y="122" font-size="11" fill="#17211B">host</text>
+              <text x="60" y="138" font-size="10" fill="#6B7268">17:00</text>
+            </g>
+            <g>
+              <circle cx="204" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="204" y="88" font-size="12" fill="#FAF8F0">15</text>
+              <text x="204" y="122" font-size="11" fill="#17211B">speech</text>
+              <text x="204" y="138" font-size="10" fill="#6B7268">18:00</text>
+            </g>
+            <!-- pair 2 -->
+            <g>
+              <circle cx="276" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="276" y="88" font-size="12" fill="#FAF8F0">16</text>
+              <text x="276" y="122" font-size="11" fill="#17211B">checks</text>
+              <text x="276" y="138" font-size="10" fill="#6B7268">19:00</text>
+            </g>
+            <g>
+              <circle cx="420" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="420" y="88" font-size="12" fill="#FAF8F0">17</text>
+              <text x="420" y="122" font-size="11" fill="#17211B">both OS</text>
+              <text x="420" y="138" font-size="10" fill="#6B7268">20:00</text>
+            </g>
+            <!-- pair 3 -->
+            <g>
+              <circle cx="492" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="492" y="88" font-size="12" fill="#FAF8F0">18</text>
+              <text x="492" y="122" font-size="11" fill="#17211B">operators</text>
+              <text x="492" y="138" font-size="10" fill="#6B7268">20:45</text>
+            </g>
+            <g>
+              <circle cx="636" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="636" y="88" font-size="12" fill="#FAF8F0">19</text>
+              <text x="636" y="122" font-size="11" fill="#17211B">cost</text>
+              <text x="636" y="138" font-size="10" fill="#6B7268">21:30</text>
+            </g>
+            <!-- pair 4 -->
+            <g>
+              <circle cx="708" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="708" y="88" font-size="12" fill="#FAF8F0">20</text>
+              <text x="708" y="122" font-size="11" fill="#17211B">limits</text>
+              <text x="708" y="138" font-size="10" fill="#6B7268">22:05</text>
+            </g>
+            <g>
+              <circle cx="852" cy="84" r="17" fill="#1F5C46"></circle>
+              <text x="852" y="88" font-size="12" fill="#FAF8F0">21</text>
+              <text x="852" y="122" font-size="11" fill="#17211B">gate</text>
+              <text x="852" y="138" font-size="10" fill="#6B7268">22:25</text>
+            </g>
+          </g>
+
+          <!-- claim / evidence labels -->
+          <g font-family="ui-monospace, Consolas, monospace" font-size="9" fill="#6B7268" text-anchor="middle">
+            <text x="132" y="186">claim → mechanism</text>
+            <text x="348" y="186">claim → mechanism</text>
+            <text x="564" y="186">claim → mechanism</text>
+            <text x="780" y="186">claim → mechanism</text>
+          </g>
+
+          <!-- the hand-off -->
+          <g font-family="ui-monospace, Consolas, monospace" font-size="10" fill="#1F5C46">
+            <text x="852" y="212" text-anchor="middle">→ slide 22</text>
+            <text x="852" y="226" text-anchor="middle" fill="#6B7268">live demo</text>
+          </g>
+
+          <line x1="48" y1="240" x2="912" y2="240" stroke="rgba(23,33,27,0.10)" stroke-width="1"></line>
+        </svg>
+      </div>
+      <p class="figure-caption">
+        Each pair answers one question and hands its conclusion to the next pair. The spine
+        arrows are the spoken bridges; the thin lines are claim → evidence inside a pair.
+      </p>
+
+      <div class="four-beats">
+        <div class="beat">
+          <p class="k">14 – 15</p>
+          <h4>How it runs</h4>
+          <p>One host owns the data. Every speech stage has a visible fallback.</p>
+        </div>
+        <div class="beat">
+          <p class="k">16 – 17</p>
+          <h4>What we proved</h4>
+          <p>Eight check groups, twice. Then the sentence that limits what that means.</p>
+        </div>
+        <div class="beat">
+          <p class="k">18 – 19</p>
+          <h4>What it needs</h4>
+          <p>Four operator jobs, and about a dollar and a half a month in API calls.</p>
+        </div>
+        <div class="beat">
+          <p class="k">20 – 21</p>
+          <h4>Where it stops</h4>
+          <p>Two open risks named out loud, then the rehearsal gate before the demo.</p>
+        </div>
+      </div>
+
+      <div class="timing">
+        <p class="figure-caption" style="margin-bottom: 8px;">Speaking time per slide, from the deck's notes · 350 s</p>
+        <div class="timing-bar" aria-hidden="true">
+          <div class="seg" style="flex: 45 1 0;">14</div>
+          <div class="seg" style="flex: 60 1 0;">15</div>
+          <div class="seg" style="flex: 60 1 0;">16</div>
+          <div class="seg" style="flex: 45 1 0;">17</div>
+          <div class="seg" style="flex: 40 1 0;">18</div>
+          <div class="seg" style="flex: 35 1 0;">19</div>
+          <div class="seg" style="flex: 30 1 0;">20</div>
+          <div class="seg" style="flex: 35 1 0;">21</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------- slide 14 -->
+    <article class="slide" id="s14">
+      <div class="slide-head">
+        <span class="slide-no">14</span>
+        <span class="slide-time">17:00–18:00</span>
+        <span class="slide-words">45 s · ~100 words</span>
+      </div>
+      <h3>Windows host and Android client</h3>
+      <p class="core"><b>Core</b>One laptop is the whole product; the phone is a client that reads, never listens.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>What is on the slide</h4>
+          <ul class="beats">
+            <li><span class="tag">host</span><span><b>Flutter senior interface</b> plus <b>FastAPI</b> and <b>SQLite</b> on one Windows laptop</span></li>
+            <li><span class="tag">link</span><span>Trusted local network, <b>HTTP on TCP 8077</b>; discovery on UDP 8078</span></li>
+            <li><span class="tag">client</span><span>Android caregiver app: family setup, approved report</span></li>
+            <li><span class="tag">cost</span><span>The host must stay on; manual approval needs no worker</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Why it follows slide 13</h4>
+          <p class="logic">
+            The prototype conversation is now a finished picture. This slide says where that
+            picture physically lives, because <span class="from">architecture</span> is what makes
+            the rest of the block checkable — the data stays in the home, so the report has to be
+            pulled, not pushed.
+          </p>
+          <p class="bridge"><b>Bridge to 15</b>“That is the shape. Now inside that host — how a sentence gets in and a voice gets out.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>45 s</span></div>
+        <p>Everything sits on one machine. The Windows laptop runs two things: the Flutter interface the older adult touches, and the backend beside it — FastAPI with a SQLite database. The Android phone is a client. It asks the backend for the approved report and shows it; it never opens a microphone.</p>
+        <p>They talk over one trusted local network on TCP 8077, with UDP 8078 for automatic discovery — and if discovery fails, the family can type the address by hand.</p>
+        <p>Two honest costs of keeping the data in the home: the host has to stay on and reachable, and a <em>scheduled</em> weekly report needs a separate worker. Manual approval needs none.</p>
+      </div>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 15 -->
+    <article class="slide" id="s15">
+      <div class="slide-head">
+        <span class="slide-no">15</span>
+        <span class="slide-time">18:00–19:00</span>
+        <span class="slide-words">60 s · ~110 words</span>
+      </div>
+      <h3>Speech, captions and fallback</h3>
+      <p class="core"><b>Core</b>Every stage has a visible fallback, so a failure costs a step, not the conversation.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>Pipeline, in order</h4>
+          <ul class="beats">
+            <li><span class="tag">input</span><span><b>Recognition</b> — local or configured cloud recogniser turns audio into text</span></li>
+            <li><span class="tag">turn</span><span><b>Conversation</b> — the backend writes a reply; typing bypasses capture</span></li>
+            <li><span class="tag">output</span><span><b>Voice</b> — DeepSeek, Edge, or the device voice, whichever is configured</span></li>
+            <li><span class="tag">recovery</span><span>Captions stay; <b>Stop</b> always works; retry once reachable</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Where the logic goes</h4>
+          <p class="logic">
+            Slide 14 gave a box diagram. This one opens the box and shows the only thing that
+            matters for an older adult: <span class="from">what happens when it breaks</span>.
+            The four rows are a sequence, but the fourth row is the argument — it is the claim
+            that failures were designed for rather than discovered.
+          </p>
+          <p class="bridge"><b>Bridge to 16</b>“We can describe that pipeline. The next two slides are about whether it actually holds.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>60 s</span></div>
+        <p>Four stages. <strong>Speech recognition</strong> turns audio into text, locally or through a configured cloud recogniser. <strong>Conversation</strong> takes that text — or typed text, which skips capture entirely — and the backend writes a reply. <strong>Voice output</strong> speaks it: the configured path can use DeepSeek, Microsoft Edge, or the device voice. And <strong>recovery</strong>: the caption stays on screen while audio is being prepared, Stop works at any point, and a retry is one tap once the service is back.</p>
+        <p>That is the design claim: an older adult should never be left looking at a dead screen. The screen keeps telling them what is happening.</p>
+      </div>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 16 -->
+    <article class="slide" id="s16">
+      <div class="slide-head">
+        <span class="slide-no">16</span>
+        <span class="slide-time">19:00–20:00</span>
+        <span class="slide-words">60 s · ~110 words</span>
+      </div>
+      <h3>What the backend smoke checked</h3>
+      <p class="core"><b>Core</b>We wrote a repeatable check, and it tests the four things most likely to break quietly.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>Eight groups, four headlines</h4>
+          <ul class="beats">
+            <li><span class="tag">roles</span><span>Health endpoint answered; a caregiver <b>could not</b> change consent (403)</span></li>
+            <li><span class="tag">turn</span><span>Synthetic voice turn returned a reply; <b>Stop worked after revocation</b></span></li>
+            <li><span class="tag">report</span><span>Draft <b>403</b> → approved readable → revoked highlights filtered</span></li>
+            <li><span class="tag">failure</span><span>Simulated outage <b>503</b>, then a typed retry succeeded</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Relation between the four</h4>
+          <p class="logic">
+            Not four features — four <span class="from">failure modes</span>: who is allowed to
+            change consent, whether Stop still works after revocation, whether an unapproved
+            report leaks, and whether a dead provider ends the conversation. Each one has an
+            observable status code on the slide.
+          </p>
+          <p class="bridge"><b>Bridge to 17</b>“Same script, two machines.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>60 s</span></div>
+        <p>It is eight groups of checks against a real local socket and a temporary database, with synthetic records and test providers.</p>
+        <p><strong>Startup and roles</strong> — the health endpoint answered, and a caregiver could not change the older adult's consent settings. <strong>Conversation and Stop</strong> — a synthetic voice turn returned a reply, and Stop still worked after consent was revoked. <strong>Report access</strong> — a caregiver asking for the draft got a 403; after the older adult approved it, the report was readable, and revoked highlights disappeared. <strong>Provider failure</strong> — a simulated outage returned a 503, and a typed retry succeeded.</p>
+        <p>The saved Windows evidence is on the slide.</p>
+      </div>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 17 -->
+    <article class="slide" id="s17">
+      <div class="slide-head">
+        <span class="slide-no">17</span>
+        <span class="slide-time">20:00–20:45</span>
+        <span class="slide-words">45 s · ~95 words</span>
+      </div>
+      <h3>Backend smoke passed on both platforms</h3>
+      <p class="core"><b>Core</b>8 of 8 on macOS and 8 of 8 on Windows — and this is where the evidence stops.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>What the slide claims</h4>
+          <ul class="beats">
+            <li><span class="tag">smoke</span><span><b>8/8 macOS</b>, <b>8/8 Windows</b> — same script</span></li>
+            <li><span class="tag">suites</span><span><b>442</b> backend, <b>319</b> Flutter, run on macOS</span></li>
+            <li><span class="tag">method</span><span>Local HTTP, synthetic records, test adapters</span></li>
+            <li><span class="tag">limit</span><span>Pairing and live voice still on the rehearsal list</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Why this slide exists</h4>
+          <p class="logic">
+            One machine passing could be a coincidence of environment. Two machines is a
+            claim about the code. But the same slide carries the sentence that
+            <span class="from">limits</span> it — otherwise the numbers would be doing work
+            they cannot do.
+          </p>
+          <p class="bridge"><b>Bridge to 18</b>“Which brings us to what a small pilot would actually need.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>45 s</span></div>
+        <p>The same script passed all eight groups on macOS and on Windows. The full automated suites — 442 backend tests, 319 Flutter tests, run on macOS — cover the rest of the behaviour.</p>
+        <p>Both runs used local HTTP, synthetic records and test adapters. So: repeatable backend behaviour, verified twice.</p>
+        <p>What this does <strong>not</strong> prove: a real microphone, a real speaker, or a real phone on a real network. Those are device questions, and they are the next two slides.</p>
+      </div>
+      <p class="aside">
+        If someone asks why the suite counts are macOS-only: answer exactly that — the suites ran
+        there; Windows has the eight-group smoke plus the packaged app. Do not upgrade the claim
+        under pressure.
+      </p>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 18 -->
+    <article class="slide" id="s18">
+      <div class="slide-head">
+        <span class="slide-no">18</span>
+        <span class="slide-time">20:45–21:30</span>
+        <span class="slide-words">40 s · ~85 words</span>
+      </div>
+      <h3>What a classroom pilot needs</h3>
+      <p class="core"><b>Core</b>Four requirements, all of them people or procedures — none of them new code.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>The four</h4>
+          <ul class="beats">
+            <li><span class="tag">host</span><span>One reachable Windows laptop; network rehearsed</span></li>
+            <li><span class="tag">failure</span><span>Synthetic speech, typed input, prepared walkthrough</span></li>
+            <li><span class="tag">report</span><span>Someone seeds last week and checks the first report</span></li>
+            <li><span class="tag">schedule</span><span>Manual works; scheduled generation needs an owner</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Why this is the turning point</h4>
+          <p class="logic">
+            Everything so far was about the system. This slide turns to
+            <span class="from">operating</span> it — and quietly makes the case that feasibility
+            is organisational, not technical. Say “we already own the equipment” out loud; that
+            is the answer to the feasibility question.
+          </p>
+          <p class="bridge"><b>Bridge to 19</b>“Cost is the other half of feasibility.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>40 s</span></div>
+        <p>A reachable Windows host: service and database on one laptop, with the network rehearsed. A way to handle provider failure: synthetic speech, typed input, a prepared walkthrough if the network drops. A report operator: seed the last completed week and check the first report before anyone watches. And, for anything ongoing, a schedule owner — manual publishing works without a worker; scheduled generation and retention need one.</p>
+        <p>That is the honest bar for “feasible in a classroom”: we already own the equipment, and we can name the four jobs.</p>
+      </div>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 19 -->
+    <article class="slide" id="s19">
+      <div class="slide-head">
+        <span class="slide-no">19</span>
+        <span class="slide-time">21:30–22:05</span>
+        <span class="slide-words">35 s · ~85 words</span>
+      </div>
+      <h3>Illustrative monthly API costs</h3>
+      <p class="core"><b>Core</b>About one and a half dollars a month for the API — a scenario, not a bill.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>Numbers on the slide</h4>
+          <ul class="beats">
+            <li><span class="tag">usage</span><span>10 cloud turns/day × 30 days</span></li>
+            <li><span class="tag">per turn</span><span>1,000 in / 100 out tokens, 50 Chinese characters of speech</span></li>
+            <li><span class="tag">total</span><span><b>≈ US$1.48</b> — about $0.13 chat, $1.35 speech</span></li>
+            <li><span class="tag">excluded</span><span>Electricity, connectivity, storage, support, retries</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>How to say a number honestly</h4>
+          <p class="logic">
+            Give the figure, then the assumptions, then what it excludes — in that order, and
+            never call it a bill. The moment you say “measured”, someone can ask what the invoice
+            said, and there isn’t one. <span class="from">Order of magnitude</span> is the claim;
+            <span class="from">quote</span> is not.
+          </p>
+          <p class="bridge"><b>Bridge to 20</b>“Cheap and feasible are not the same as safe to distribute — and that is the last thing I want to be precise about.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>35 s</span></div>
+        <p>Under stated assumptions — ten cloud turns a day for thirty days, each turn one thousand input tokens, one hundred output tokens, fifty Chinese characters of speech — the API subtotal is about <strong>US$1.48 per household-month</strong>. Roughly eight cents of that is chat, one dollar thirty-five is speech.</p>
+        <p>It excludes electricity, connectivity, storage, support and retries, and nobody has been billed for this. The arithmetic and the dated rates are in the feasibility report; treat the number as an order of magnitude, not a quote.</p>
+      </div>
+      <p class="aside">
+        The slide's own cost line mentions ASR inside a free allowance. The speech-recognition
+        service actually used is a paid one, so keep the sentence above as written — it claims
+        chat and speech synthesis only — or change that line before the presentation.
+      </p>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 20 -->
+    <article class="slide" id="s20">
+      <div class="slide-head">
+        <span class="slide-no">20</span>
+        <span class="slide-time">22:05–22:25</span>
+        <span class="slide-words">30 s · ~80 words</span>
+      </div>
+      <h3>Release and privacy limits</h3>
+      <p class="core"><b>Core</b>Three boundaries, two of them open and tracked.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>Named on the slide</h4>
+          <ul class="beats">
+            <li><span class="tag">packaging</span><span>The build script can embed a credential file — inspect before distributing</span></li>
+            <li><span class="tag">consent</span><span>Direct speech endpoints need a server-side consent check before calling out</span></li>
+            <li><span class="tag">boundary</span><span>Demo identities, plain LAN HTTP, synthetic records only</span></li>
+            <li><span class="tag">status</span><span>Both open items are pull requests, not anecdotes</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Why this is the strongest slide</h4>
+          <p class="logic">
+            Everything before this is capability. This is the slide that makes the capability
+            believable, because it names what is <span class="from">not</span> solved and points
+            at a link instead of shrugging. Deliver it flatly — no apology, no rush.
+          </p>
+          <p class="bridge"><b>Bridge to 21</b>“So the last slide before the demo is the gate we hold ourselves to.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>30 s</span></div>
+        <p><strong>Windows packaging</strong>: the current build script can embed a local credential file, so a build has to be inspected before it is distributed. <strong>Cloud opt-out</strong>: the direct speech endpoints need a server-side consent check before they call an external provider — that gap is open. <strong>Deployment boundary</strong>: this is a classroom build — demo identities, plain LAN HTTP, synthetic records only.</p>
+        <p>Both open items are pull requests, and neither is hidden.</p>
+      </div>
+    </article>
+
+    <!-- ------------------------------------------------------- slide 21 -->
+    <article class="slide" id="s21">
+      <div class="slide-head">
+        <span class="slide-no">21</span>
+        <span class="slide-time">22:25–23:00</span>
+        <span class="slide-words">35 s · ~80 words</span>
+      </div>
+      <h3>Readiness for a live demo</h3>
+      <p class="core"><b>Core</b>Four rehearsals before anything is shown live.</p>
+
+      <div class="columns">
+        <div class="panel">
+          <h4>The gate</h4>
+          <ul class="beats">
+            <li><span class="tag">connection</span><span>Discovery <b>and</b> manual pairing, on the actual hotspot</span></li>
+            <li><span class="tag">voice</span><span>Real mic, captions, playback, typed fallback practised</span></li>
+            <li><span class="tag">report</span><span>Preview → approve → refresh after revoking one topic</span></li>
+            <li><span class="tag">backup</span><span>English walkthrough ready if a provider fails</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>How to close</h4>
+          <p class="logic">
+            Do not end on a summary. End on the <span class="from">transition</span> to the demo:
+            these are the failure paths we rehearsed, and now we will try the real ones. Then
+            hand over. The demo is the next slide's job, not yours.
+          </p>
+          <p class="bridge"><b>Hand over to 22</b>“Which is what we are about to do — live, on this laptop and this phone.”</p>
+        </div>
+      </div>
+
+      <div class="script">
+        <div class="label"><span>Say this</span><span>35 s</span></div>
+        <p><strong>Connection</strong> — discovery <em>and</em> manual pairing, on the actual hotspot, not on a remembered network. <strong>Speech and Stop</strong> — real microphone, real captions, real playback, and the typed fallback practised. <strong>Report workflow</strong> — preview, approve, then refresh after revoking one topic. <strong>Demo backup</strong> — an English walkthrough ready if the connection or a provider fails.</p>
+        <p>We rehearse the failure paths, because those are the ones that decide whether the demo is honest.</p>
+      </div>
+    </article>
+
+    <!-- -------------------------------------------------------- caveats -->
+    <section class="gaps" aria-labelledby="gaps-title">
+      <div class="section-label">
+        <h3 id="gaps-title">Three things to fix before you present</h3>
+        <span class="hint">not script problems — slide problems</span>
+      </div>
+      <div class="gap-box">
+        <ol>
+          <li><b>The footer still says ANCHOR.</b> All eight of your slides carry <span class="chip">ANCHOR / TEAM ONE</span>. The spoken script says Everhere. Change the footer, or you will contradict the screen in your first sentence.</li>
+          <li><b>Slide 17 says 319 Flutter tests.</b> The current suite is 324 after the evidence pull request merged. Either update the number or keep the macOS framing in the script above, which is accurate either way.</li>
+          <li><b>Slide 19 says ASR sits in a free tier.</b> The recognition service in use is paid. The script avoids the claim; the slide still makes it. Change one or the other.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ q&a -->
+    <section class="qa" aria-labelledby="qa-title">
+      <div class="section-label">
+        <h3 id="qa-title">Five answers, kept short</h3>
+        <span class="hint">open the one you are asked</span>
+      </div>
+
+      <details open>
+        <summary>Is this a medical device?</summary>
+        <p>No. It is a companion for conversation and a weekly report. It never diagnoses, scores cognition or gives medical advice — that constraint is written into the prompt the model runs under, not just the interface.</p>
+      </details>
+
+      <details open>
+        <summary>Why not just one app on the older adult's phone?</summary>
+        <p>Because the family phone is where settings live, and one screen with one Talk button is the whole design for the person using it. Splitting the product was simpler than hiding controls from them.</p>
+      </details>
+
+      <details open>
+        <summary>Why a laptop instead of the cloud?</summary>
+        <p>Privacy and cost. The database stays in the home and the API subtotal is about a dollar and a half a month. The price is that the laptop has to be on — we say that out loud rather than hide it.</p>
+      </details>
+
+      <details open>
+        <summary>What happens if the network dies mid-sentence?</summary>
+        <p>The caption stays, Stop keeps working, and the retry is one tap. The typed path never needs the microphone.</p>
+      </details>
+
+      <details open>
+        <summary>Did real older adults use this?</summary>
+        <p>Not yet, and we do not claim it. The participant protocol exists and the observation sheet is empty — a deliberate gap, not an oversight.</p>
+      </details>
+    </section>
+
+    <footer class="doc">
+      Everhere · Team One · TA5 · slides 14–21 runbook.
+      Timings from the deck's speaker notes (17:00–23:00). Evidence cited to commit 1e411fd.
+      Spoken script ≈ 740 words at 130–140 wpm.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
